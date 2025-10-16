@@ -1,0 +1,20 @@
+{
+  "configurations": [
+    {
+      "buildCommandArgs": "",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "cmakeCommandArgs": "",
+      "configurationType": "Debug",
+      "generator": "Visual Studio 17 2022",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "name": "x64-Debug",
+      "cmakeToolchain": "D:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "variables": [
+        {
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "20"
+        }
+      ]
+    }
+  ]
+}
