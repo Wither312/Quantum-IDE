@@ -15,3 +15,5 @@ out/
 *.pdb
 *.cache
 ".vs/" 
+.vs/
+out/
