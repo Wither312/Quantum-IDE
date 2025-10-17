@@ -3,6 +3,8 @@
 
 # Build output
 out/
+build/*
+.vscode/
 
 # Optional: OS or editor-specific files
 *.log
