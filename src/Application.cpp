@@ -1,4 +1,5 @@
 ﻿#include "Application.hpp"
+#include "BuildSystem.hpp"
 
 inline static void glfw_error_callback(int error, const char* description)
 {
@@ -81,7 +82,10 @@ static void ShowMainDockSpace()
 	ImGui::SameLine();
 	ImGui::Button("Save");
 	ImGui::SameLine();
-	ImGui::Button("Build");
+	if (ImGui::Button("Build")) {
+		// Handle build action
+		BuildSystem::BuildCurrentFile();
+	}
 	// Add more buttons as needed...
 
 	ImGui::EndChild();
