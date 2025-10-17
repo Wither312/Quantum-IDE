@@ -22,9 +22,11 @@ set(IMGUI_SOURCES
     vendor/imgui/backends/imgui_impl_opengl3.cpp
 )
 
-add_library(imgui STATIC ${IMGUI_SOURCES})
+add_library(imgui STATIC ${IMGUI_SOURCES} "src/Application.cpp" "src/ProjectManager.cpp" "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" 
+"src/SettingsManager.cpp" "src/FileWatcher.cpp")
 
 target_include_directories(imgui PRIVATE
+    ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/vendor/imgui
     ${PROJECT_SOURCE_DIR}/vendor/imgui/backends
     ${PROJECT_SOURCE_DIR}/vendor/glfw/include
@@ -38,10 +40,11 @@ find_package(OpenGL REQUIRED)
 # Collect your app source files (only src/)
 file(GLOB_RECURSE APP_SOURCES "${PROJECT_SOURCE_DIR}/src/*.cpp")
 
-add_executable(QuantomIDE ${APP_SOURCES})
+add_executable(QuantomIDE ${APP_SOURCES} "src/Application.cpp" "src/ProjectManager.cpp" "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" "include/SettingsManager.hpp" "src/SettingsManager.cpp" "src/FileWatcher.cpp")
 
 target_include_directories(QuantomIDE PRIVATE
     src
+    include
     ${PROJECT_SOURCE_DIR}/vendor/imgui
     ${PROJECT_SOURCE_DIR}/vendor/imgui/backends
     ${PROJECT_SOURCE_DIR}/vendor/glfw/include

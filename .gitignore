@@ -1,0 +1,17 @@
+﻿# IDE-specific folders
+.vs/
+
+# Build output
+out/
+
+# Optional: OS or editor-specific files
+*.log
+*.user
+*.suo
+*.VC.db
+*.obj
+*.exe
+*.dll
+*.pdb
+*.cache
+".vs/" 
