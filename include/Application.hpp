@@ -13,12 +13,12 @@
 #include <Windows.h>
 #include <commdlg.h>
 #endif
-#include <string>
 #include <fstream>
 
 
 #include "EditorManager.hpp"
 #include "UIManager.hpp"
+#include "BuildSystem.hpp"
 
 // Forward declarations to avoid unnecessary includes
 struct GLFWwindow;
@@ -55,6 +55,8 @@ private:
     void InitImGui();
     void Shutdown();
 
+    void ShowMainDockSpace();
+
     void BeginFrame();
     void EndFrame();
 
@@ -71,5 +73,6 @@ private:
 
     EditorManager m_Editor;
     UIManager m_UIManager;
+    BuildSystem m_BuildSytem;
 
 };

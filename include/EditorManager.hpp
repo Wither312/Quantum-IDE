@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <filesystem>
+#include <iostream>
 
 // Forward declarations
 class Document;
@@ -15,95 +16,102 @@ class TabBar;
 // Represents the text buffer and handles undo/redo
 class Document {
 public:
-    Document() = default;
-    ~Document() = default;
+	Document() = default;
+	~Document() = default;
 
-    void setText(const std::string& text);
-     std::string& getText() ;
+	void setText(const std::string& text);
+	std::string& getText();
 
-    void undo();
-    void redo();
+	void undo();
+	void redo();
 
 private:
-    std::string m_TextBuffer;
+	std::string m_TextBuffer;
 
-    std::vector<std::string> m_UndoStack;
-    std::vector<std::string> m_RedoStack;
+	std::vector<std::string> m_UndoStack;
+	std::vector<std::string> m_RedoStack;
 };
 
 // Handles syntax highlighting of text
 class SyntaxHighlighter { // TODO replace with the GitHub one
 public:
-    SyntaxHighlighter();
-    ~SyntaxHighlighter();
+	SyntaxHighlighter();
+	~SyntaxHighlighter();
 
-    // Apply syntax highlighting to a document
-    void highlight(const Document& doc);
+	// Apply syntax highlighting to a document
+	void highlight(const Document& doc);
 
 private:
-    // Internal data/methods to handle syntax rules
+	// Internal data/methods to handle syntax rules
 };
 
 // Represents a single tab in the editor, managing a document and highlighter
 class EditorTab {
 public:
-    EditorTab(std::string);
-    EditorTab(std::unique_ptr<Document> doc);
-    ~EditorTab();
+	EditorTab(std::string);
+	EditorTab(std::unique_ptr<Document> doc);
+	~EditorTab();
 
-    void setTabName(std::string name) { m_TabName = name; }
-    void setFilePath(std::filesystem::path path) { m_Path = path; }
-    
-    std::filesystem::path getFilePath() { return m_Path; }
+	void setTabName(std::string name) { m_TabName = name; }
+	void setFilePath(std::filesystem::path path) { m_Path = path; }
 
-    Document& getDocument();
-    std::string& getTabName() { return m_TabName; }
-    SyntaxHighlighter& getSyntaxHighlighter();
+	std::filesystem::path getFilePath()
+	{
+		if (this == nullptr) {
+			std::cerr << "EditorTab 'this' pointer is null!\n";
+			__debugbreak();
+		}
+		return m_Path;
+	}
+
+	Document& getDocument();
+	std::string& getTabName() { return m_TabName; }
+	SyntaxHighlighter& getSyntaxHighlighter();
 
 private:
-    std::string m_TabName;
-    std::filesystem::path m_Path;
-    SyntaxHighlighter m_SyntaxHighlighter;
-    std::unique_ptr<Document> m_Document;
+	std::string m_TabName;
+	std::filesystem::path m_Path = "";
+	SyntaxHighlighter m_SyntaxHighlighter;
+	std::unique_ptr<Document> m_Document;
 
 };
 
 // Manages the collection of tabs
 class TabBar {
 public:
-    TabBar();
-    ~TabBar();
+	TabBar();
+	~TabBar();
 
-    void addTab(std::unique_ptr<EditorTab> tab);
-    void closeTab(int index);
-    EditorTab* getTab(int index);
+	void addTab(std::unique_ptr<EditorTab> tab);
+	void closeTab(int index);
+	EditorTab* getTab(int index);
 
-    int getTabCount() const;
+	int getTabCount() const;
 
-    // New:
-    int getCurrentTabIndex() const;
-    EditorTab* getCurrentTab();
+	// New:
+	int getCurrentTabIndex() const;
+	EditorTab* getCurrentTab();
 
-    void setCurrentTabIndex(int index);
+	void setCurrentTabIndex(int index);
 
 private:
-    std::vector<std::unique_ptr<EditorTab>> m_Tabs;
-    int m_CurrentTabIndex = -1;  // -1 means no active tab
+	std::vector<std::unique_ptr<EditorTab>> m_Tabs;
+	int m_CurrentTabIndex = -1;  // -1 means no active tab
 };
 
 
 // Main manager class for the editor subsystem
 class EditorManager {
 public:
-    EditorManager();
-    ~EditorManager();
+	EditorManager();
+	~EditorManager();
 
-    void openFile(const std::string& filepath);
-    void closeFile(int tabIndex);
+	void openFile(const std::string& filepath);
+	void closeFile(int tabIndex);
 
-    TabBar& getTabBar();
+	TabBar& getTabBar();
 
 private:
-    TabBar m_TabBar;
+	TabBar m_TabBar;
 
 };

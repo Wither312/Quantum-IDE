@@ -36,6 +36,10 @@ void UIManager::drawEditor(EditorManager& editor)
                 ImGui::SetTooltip("File lcoation: %s", tab->getFilePath());
                 // Or do other hover-related stuff here
             }
+            if (ImGui::IsItemClicked())
+            {
+
+            }
 
             if (ImGui::BeginTabItem(tabName.c_str())) {
                 auto& docText = tab->getDocument().getText();

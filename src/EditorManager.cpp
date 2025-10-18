@@ -141,6 +141,8 @@ void EditorManager::openFile(const std::string& filepath)
     tab.get()->setTabName(std::filesystem::path(filepath).filename().string());
     tab.get()->setFilePath(std::filesystem::path(filepath));
     m_TabBar.addTab(std::move(tab));
+
+    m_TabBar.setCurrentTabIndex(m_TabBar.getTabCount() - 1 );
 }
 
 void EditorManager::closeFile(int tabIndex)

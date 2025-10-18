@@ -1,5 +1,5 @@
 ﻿#include "Application.hpp"
-#include "BuildSystem.hpp"
+
 
 inline static void glfw_error_callback(int error, const char* description)
 {
@@ -37,7 +37,7 @@ void Application::Run()
 
 	Shutdown();
 }
-static void ShowMainDockSpace()
+void Application::ShowMainDockSpace()
 {
 	static bool dockspaceOpen = true;
 	static bool opt_fullscreen_persistant = true;
@@ -85,7 +85,7 @@ static void ShowMainDockSpace()
 	ImGui::SameLine();
 	if (ImGui::Button("Build")) {
 		// Handle build action
-		BuildSystem::BuildCurrentFile();
+		m_BuildSytem.BuildCurrentFile(m_Editor.getTabBar().getCurrentTab()->getTabName());
 	}
 	// Add more buttons as needed...
 
@@ -208,7 +208,7 @@ void Application::Update()
 						if (ImGui::MenuItem("New"))
 						{
 							m_Editor.getTabBar().addTab(std::make_unique<EditorTab>("Not saved"));
-							m_Editor.getTabBar().setCurrentTabIndex(0);
+							m_Editor.getTabBar().setCurrentTabIndex(m_Editor.getTabBar().getTabCount() -1);
 						}
 						if (ImGui::MenuItem("Open..."))
 						{
@@ -217,6 +217,7 @@ void Application::Update()
 							if (!selectedFile.empty()) {
 								// Handle file open, e.g. load file contents into your editor
 								m_Editor.openFile(selectedFile);
+								
 							}
 
 #endif
@@ -224,18 +225,21 @@ void Application::Update()
 						if (ImGui::MenuItem("Save")) {
 							const auto& tab = m_Editor.getTabBar().getCurrentTab();
 
-							if (tab->getFilePath().empty()) {
-								std::string filePath = saveAsFile();
-								if (!filePath.empty()) { // user didn't cancel
-									tab->setFilePath(filePath);
-									tab->setTabName(std::filesystem::path(filePath).filename().string());
-									saveFile(filePath, tab->getDocument().getText());
-									// tab->setDirty(false); // if you track dirty state
-								}
+							if (!tab) {
+								std::cerr << "[Warning] Cannot save: No tab is open.\n";
 							}
 							else {
-								saveFile(tab->getFilePath(), tab->getDocument().getText());
-								// tab->setDirty(false);
+								if (tab->getFilePath().empty()) {
+									std::string filePath = saveAsFile();
+									if (!filePath.empty()) { // user selected a path
+										tab->setFilePath(filePath);
+										tab->setTabName(std::filesystem::path(filePath).filename().string());
+										saveFile(filePath, tab->getDocument().getText());
+									}
+								}
+								else {
+									saveFile(tab->getFilePath(), tab->getDocument().getText());
+								}
 							}
 						}
 
@@ -264,6 +268,14 @@ void Application::Update()
 						//	ImGui::MenuItem("Show Inspector", NULL, &show_inspector_window);
 						ImGui::EndMenu();
 					}
+					if (ImGui::BeginMenu("Project"))
+					{
+						if (ImGui::MenuItem("New")) {}
+						if (ImGui::MenuItem("Open")) {}
+						if (ImGui::MenuItem("Open Folder")) {}
+						ImGui::EndMenu();
+					}
+
 
 					ImGui::EndMainMenuBar();
 				}
