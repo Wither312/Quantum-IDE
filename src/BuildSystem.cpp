@@ -7,7 +7,8 @@ BuildSystem::BuildSystem()
 	m_BuildFlags.push_back(CompilerFlag::Cpp20);
 }
 
-void BuildSystem::BuildCurrentFile(const std::string& fileName) {
+void BuildSystem::BuildCurrentProject(EditorManager& p_Editor, const Project& p_Project)
+{
 	if (m_IsBuilding.exchange(true)) {
 		return;
 	}
@@ -15,9 +16,12 @@ void BuildSystem::BuildCurrentFile(const std::string& fileName) {
 	// Copy editor buffer so thread doesn't capture ref to it
 	std::string editorContent(m_EditorBuffer);
 
-	if (fileName.empty())
+	if (p_Project.isDirty())
 	{
-		std::cerr << "[Warning]:Filename is empty" << std::endl;
+		std::cerr << "[Warning]:Project not saved, saving" << std::endl;
+		p_Editor.getTabBar().saveAll();
+		p_Project.save();
+
 	}
 
 	std::thread([&]() {
@@ -27,12 +31,16 @@ void BuildSystem::BuildCurrentFile(const std::string& fileName) {
 		//	std::lock_guard<std::mutex> lk(m_BuildMutex);
 		//	ofs << editorContent;
 		//} // mutex unlocked here   // ova go pravie file da bide prazen? zs voopsto citas?
-		m_Sources.clear();
 
-		m_Sources.push_back(fileName); // Consider protecting m_Sources with mutex
+
 
 		std::string otherOptions = "";
-		std::string buildTask = parseCompiler(m_Compiler) + " " + BuildFlags(m_BuildFlags) + " " + BuildFiles() + " " + otherOptions + " -o " + fileName + ".exe";
+		std::string buildTask = "cd \"" + p_Project.getRootDirectory().string() + "\"" +
+			" && " + parseCompiler(m_Compiler) + " " +
+			BuildFlags(m_BuildFlags) + " " +
+			BuildFiles(p_Project.getSourceFiles()) + " " +
+			otherOptions + " -o \"" + p_Project.getRootDirectory().string() + "\\" + p_Project.getName() + ".exe\"";
+
 
 		std::string output;
 #ifdef _WIN32
@@ -66,6 +74,25 @@ void BuildSystem::BuildCurrentFile(const std::string& fileName) {
 		m_IsBuilding.store(false);
 		}).detach();
 }
+void BuildSystem::RunCurrentProject(const Project& p_Project)
+{
+	std::string command = "\"" + p_Project.getRootDirectory().string() + "\\" + p_Project.getName() + "\"";  // Quote it in case of spaces
+
+	std::string result;
+	char buffer[128];
+
+	// "r" = read the output of the command
+	std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(command.c_str(), "r"), _pclose);
+	if (!pipe)
+		throw std::runtime_error("Failed to run command");
+
+	while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr)
+	{
+		result += buffer;
+	}
+
+	std::cout << result << std::endl;
+}
 std::string BuildSystem::BuildFlags(const std::vector<CompilerFlag>& flags)
 {
 	std::string compilerFlags;
@@ -74,11 +101,11 @@ std::string BuildSystem::BuildFlags(const std::vector<CompilerFlag>& flags)
 	}
 	return compilerFlags;
 }
-std::string BuildSystem::BuildFiles()
+std::string BuildSystem::BuildFiles(std::vector<std::filesystem::path> p_Sources)
 {
 	std::string inputFiles;
-	for (const auto& src : m_Sources) {
-		inputFiles += " " + src;
+	for (const auto& src : p_Sources) {
+		inputFiles += " \"" + src.string() + "\"";
 	}
 	return inputFiles;
 }

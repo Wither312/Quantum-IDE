@@ -85,7 +85,19 @@ void Application::ShowMainDockSpace()
 	ImGui::SameLine();
 	if (ImGui::Button("Build")) {
 		// Handle build action
-		m_BuildSytem.BuildCurrentFile(m_Editor.getTabBar().getCurrentTab()->getTabName());
+		m_BuildSytem.BuildCurrentProject(m_Editor,m_Project);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Run")) {
+		// Handle build action
+		m_BuildSytem.RunCurrentProject(m_Project);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Build and Run"))
+	{
+		// Handle build action
+		m_BuildSytem.BuildCurrentProject(m_Editor,m_Project);
+		m_BuildSytem.RunCurrentProject(m_Project);
 	}
 	// Add more buttons as needed...
 
@@ -97,49 +109,6 @@ void Application::ShowMainDockSpace()
 	ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 
-}
-static std::string OpenFileDialog(const char* filter = "All Files\0*.*\0") {
-	OPENFILENAME ofn;       // common dialog box structure
-	CHAR szFile[260] = { 0 }; // buffer for file name
-
-	ZeroMemory(&ofn, sizeof(ofn));
-	ofn.lStructSize = sizeof(ofn);
-	ofn.hwndOwner = NULL; // You can pass your window handle here if you have it
-	ofn.lpstrFile = szFile;
-	ofn.nMaxFile = sizeof(szFile);
-	ofn.lpstrFilter = filter; // example: "Text Files\0*.txt\0All Files\0*.*\0"
-	ofn.nFilterIndex = 1;
-	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
-
-	if (GetOpenFileName(&ofn) == TRUE) {
-		return std::string(szFile);
-	}
-	return std::string(); // empty if cancelled
-}
-static void saveFile(const std::filesystem::path& filepath, const std::string& data) {
-	std::ofstream file(filepath);
-	if (file.is_open()) {
-		file << data;
-	}
-}
-static std::string saveAsFile(const char* filter = "All Files\0*.*\0") {
-	OPENFILENAME ofn;       // common dialog box structure
-	CHAR szFile[260] = { 0 }; // buffer for file name
-
-	ZeroMemory(&ofn, sizeof(ofn));
-	ofn.lStructSize = sizeof(ofn);
-	ofn.hwndOwner = NULL; // Set this to your window handle if you have one
-	ofn.lpstrFile = szFile;
-	ofn.nMaxFile = sizeof(szFile);
-	ofn.lpstrFilter = filter; // example: "Text Files\0*.txt\0All Files\0*.*\0"
-	ofn.nFilterIndex = 1;
-	ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
-
-	if (GetSaveFileName(&ofn) == TRUE) {
-		return std::string(szFile);
-	}
-
-	return std::string(); // empty string if user cancels
 }
 
 void Application::Update()
@@ -156,133 +125,15 @@ void Application::Update()
 
 		this->BeginFrame();
 
-		{
+		ShowMainDockSpace();
 
-			ShowMainDockSpace();
-			//Editor
+		//TOOD find better way to index 
+		m_UIManager.draw(m_Editor, m_Project);
 
-			 //TOOD find better way to index 
-			m_UIManager.draw(m_Editor);
+		m_UIManager.draw(m_TreeView, m_Project);
 
+		m_UIManager.draw(m_MenuBar, m_Editor, m_Project);
 
-
-
-
-
-
-			{
-
-				ImGuiID dock_id = ImGui::GetID("MyDockSpace");
-				ImGui::SetNextWindowDockID(dock_id, ImGuiCond_FirstUseEver);
-				namespace fs = std::filesystem;
-				fs::path currentDir = fs::current_path();
-				ImGui::Begin("File Explorer");
-				for (const auto& entry : fs::directory_iterator(currentDir))
-				{
-
-					if (fs::is_directory(entry.path()))
-					{
-						if (ImGui::TreeNode(entry.path().filename().string().c_str()))
-						{
-							// You could recurse into this folder here
-							ImGui::TreePop();
-						}
-					}
-					else if (fs::is_regular_file(entry.path()))
-					{
-						ImGui::Text("%s", entry.path().filename().string().c_str());
-						// ❌ Don't call TreePop() here, no TreeNode was opened!
-					}
-				}
-				ImGui::End();
-				ImGui::End(); // end dockspace
-
-			}
-
-
-			{
-				if (ImGui::BeginMainMenuBar())
-				{
-					if (ImGui::BeginMenu("File"))
-					{
-						if (ImGui::MenuItem("New"))
-						{
-							m_Editor.getTabBar().addTab(std::make_unique<EditorTab>("Not saved"));
-							m_Editor.getTabBar().setCurrentTabIndex(m_Editor.getTabBar().getTabCount() -1);
-						}
-						if (ImGui::MenuItem("Open..."))
-						{
-#ifdef WIN32
-							std::string selectedFile = OpenFileDialog("Text Files\0*.txt\0C++ Files\0*.cpp;*.h\0All Files\0*.*\0");
-							if (!selectedFile.empty()) {
-								// Handle file open, e.g. load file contents into your editor
-								m_Editor.openFile(selectedFile);
-								
-							}
-
-#endif
-						}
-						if (ImGui::MenuItem("Save")) {
-							const auto& tab = m_Editor.getTabBar().getCurrentTab();
-
-							if (!tab) {
-								std::cerr << "[Warning] Cannot save: No tab is open.\n";
-							}
-							else {
-								if (tab->getFilePath().empty()) {
-									std::string filePath = saveAsFile();
-									if (!filePath.empty()) { // user selected a path
-										tab->setFilePath(filePath);
-										tab->setTabName(std::filesystem::path(filePath).filename().string());
-										saveFile(filePath, tab->getDocument().getText());
-									}
-								}
-								else {
-									saveFile(tab->getFilePath(), tab->getDocument().getText());
-								}
-							}
-						}
-
-						if (ImGui::MenuItem("Save As")) {
-							const auto& tab = m_Editor.getTabBar().getCurrentTab();
-							std::string filePath = saveAsFile();
-							if (!filePath.empty()) { // always good to check for cancel
-								tab->setFilePath(filePath);
-								tab->setTabName(std::filesystem::path(filePath).filename().string());
-								saveFile(tab->getFilePath(), tab->getDocument().getText());
-							}
-						}
-						ImGui::EndMenu();
-					}
-
-					if (ImGui::BeginMenu("Edit"))
-					{
-						if (ImGui::MenuItem("Undo")) {}
-						if (ImGui::MenuItem("Redo")) {}
-						ImGui::EndMenu();
-					}
-
-					if (ImGui::BeginMenu("View"))
-					{
-						//	ImGui::MenuItem("Show Console", NULL, &show_console_window);
-						//	ImGui::MenuItem("Show Inspector", NULL, &show_inspector_window);
-						ImGui::EndMenu();
-					}
-					if (ImGui::BeginMenu("Project"))
-					{
-						if (ImGui::MenuItem("New")) {}
-						if (ImGui::MenuItem("Open")) {}
-						if (ImGui::MenuItem("Open Folder")) {}
-						ImGui::EndMenu();
-					}
-
-
-					ImGui::EndMainMenuBar();
-				}
-
-
-			}
-		}
 
 		this->EndFrame();
 	}

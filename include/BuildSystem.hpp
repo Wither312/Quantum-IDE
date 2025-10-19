@@ -9,6 +9,10 @@
 #include <vector>
 #include <iostream>
 
+#include "Project.hpp"
+#include "EditorManager.hpp"
+
+
 enum class CompileMode {
 	CompileAndLink,  // default, no -c
 	CompileOnly      // -c
@@ -123,10 +127,11 @@ class BuildSystem {
 public:
 	BuildSystem();
 
-	void BuildCurrentFile(const std::string&);
-	
+	void BuildCurrentProject( EditorManager&, const Project& );
+	void RunCurrentProject(const Project& p_Project);
+
 	std::string BuildFlags(const std::vector<CompilerFlag>&);
-	std::string BuildFiles();
+	std::string BuildFiles(std::vector<std::filesystem::path>);
 
 
 
@@ -140,7 +145,6 @@ public:
 	//
 private:
 	Compiler m_Compiler;
-	std::vector<std::string> m_Sources;// = { "main.cpp", "utils.cpp" };
 	std::vector<CompilerFlag> m_BuildFlags;
 
 

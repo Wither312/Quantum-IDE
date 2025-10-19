@@ -9,16 +9,13 @@
 #include <GLFW/glfw3.h>
 #include <filesystem>
 #include <iostream>
-#ifdef WIN32
-#include <Windows.h>
-#include <commdlg.h>
-#endif
 #include <fstream>
 
 
 #include "EditorManager.hpp"
 #include "UIManager.hpp"
 #include "BuildSystem.hpp"
+
 
 // Forward declarations to avoid unnecessary includes
 struct GLFWwindow;
@@ -71,8 +68,13 @@ private:
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+    
     EditorManager m_Editor;
     UIManager m_UIManager;
     BuildSystem m_BuildSytem;
+    TreeView m_TreeView;
+    MenuBar m_MenuBar;
+    Project m_Project;
+   
 
 };

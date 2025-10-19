@@ -50,12 +50,12 @@ void SyntaxHighlighter::highlight(const Document& /*doc*/)
 
 // -------- EditorTab --------
 EditorTab::EditorTab(std::string name)
-    : m_TabName(name), m_Document(std::make_unique<Document>())
+    : m_TabName(name), m_Document(std::make_unique<Document>()), m_Path("")
 {
 }
 
 EditorTab::EditorTab(std::unique_ptr<Document> doc)
-    : m_Document(std::move(doc))
+    : m_Document(std::move(doc)), m_Path("")
 {
 }
 
@@ -85,6 +85,7 @@ void TabBar::closeTab(int index)
     if (index >= 0 && index < static_cast<int>(m_Tabs.size()))
     {
         m_Tabs.erase(m_Tabs.begin() + index);
+        m_Tabs.shrink_to_fit();
     }
 }
 

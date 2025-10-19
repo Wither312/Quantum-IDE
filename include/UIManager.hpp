@@ -2,20 +2,35 @@
 #include <imgui.h>
 #include <vector>
 #include <cstring> 
+
+
+
+#include "FileManager.hpp"
 #include "EditorManager.hpp"
+#include "TreeView.hpp"
+#include "MenuBar.hpp"
+#include "FileDialog.hpp"
 
 class UIManager {
 public:
     UIManager() = default;
     ~UIManager() = default;
 
-    // Main UI draw call, takes EditorManager reference
-    void draw(EditorManager& editor);
+    void draw(EditorManager& editor,Project& e) {
+        drawEditor(editor,e);
+    }
+
+    void draw(TreeView& tree,Project& p) {
+        drawTreeView(tree, p);
+    }
+
+
+    void draw(MenuBar& menu, EditorManager& editor,Project& prj) {
+        drawMenuBar(menu, editor,prj);
+    }
 
 private:
-    // Separate method to draw editor UI
-    void drawEditor(EditorManager& editor);
-
-    // You can add more UI components here later
-    // e.g., void drawMenuBar();
+    void drawEditor(EditorManager&,Project&);
+    void drawTreeView(TreeView& p_TreeView, Project& p_Project);
+    void drawMenuBar(MenuBar& menuBar, EditorManager& m_Editor, Project& m_Project);
 };

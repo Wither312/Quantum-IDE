@@ -6,6 +6,8 @@
 #include <string>
 #include <filesystem>
 #include <iostream>
+#include "FileDialog.hpp"
+#include "FileManager.hpp"
 
 // Forward declarations
 class Document;
@@ -61,6 +63,11 @@ public:
 			std::cerr << "EditorTab 'this' pointer is null!\n";
 			__debugbreak();
 		}
+		if (m_Path.empty() && !m_TabName.empty())
+		{
+			std::cerr << "EditorTab file path is empty!\n";
+			return std::filesystem::path();
+		}
 		return m_Path;
 	}
 
@@ -84,6 +91,29 @@ public:
 
 	void addTab(std::unique_ptr<EditorTab> tab);
 	void closeTab(int index);
+	void saveAll()
+	{
+		for (auto& tab : m_Tabs)
+		{
+
+			if (!tab) {
+				std::cerr << "[Warning] Tab does not exist.\n";
+			}
+			else {
+				if (tab->getFilePath().empty()) {
+					std::string filePath = FileDialog::saveFileDialog();
+					if (!filePath.empty()) { // user selected a path
+						tab->setFilePath(filePath);
+						tab->setTabName(std::filesystem::path(filePath).filename().string());
+						FileManager::saveFile(filePath, tab->getDocument().getText());
+					}
+				}
+				else {
+					FileManager::saveFile(tab->getFilePath(), tab->getDocument().getText());
+				}
+			}
+		}
+	}
 	EditorTab* getTab(int index);
 
 	int getTabCount() const;
@@ -107,6 +137,7 @@ public:
 	~EditorManager();
 
 	void openFile(const std::string& filepath);
+
 	void closeFile(int tabIndex);
 
 	TabBar& getTabBar();

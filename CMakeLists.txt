@@ -22,14 +22,17 @@ set(IMGUI_SOURCES
     vendor/imgui/backends/imgui_impl_opengl3.cpp
 )
 
-add_library(imgui STATIC ${IMGUI_SOURCES} "src/Application.cpp" "src/ProjectManager.cpp" "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" 
-"src/SettingsManager.cpp" "src/FileWatcher.cpp")
+add_library(imgui STATIC ${IMGUI_SOURCES} "src/Application.cpp"  "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" 
+"src/SettingsManager.cpp" "src/FileWatcher.cpp" "src/FileManager.cpp" "src/MenuBar.cpp"  "src/TreeView.cpp" "src/Project.cpp")
 
 target_include_directories(imgui PRIVATE
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/vendor/imgui
     ${PROJECT_SOURCE_DIR}/vendor/imgui/backends
     ${PROJECT_SOURCE_DIR}/vendor/glfw/include
+    # In your main CMakeLists.txt
+    ${CMAKE_SOURCE_DIR}/vendor/json/single_include
+
 )
 
 # GLFW from submodule
@@ -40,7 +43,7 @@ find_package(OpenGL REQUIRED)
 # Collect your app source files (only src/)
 file(GLOB_RECURSE APP_SOURCES "${PROJECT_SOURCE_DIR}/src/*.cpp")
 
-add_executable(QuantomIDE ${APP_SOURCES} "src/Application.cpp" "src/ProjectManager.cpp" "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" "include/SettingsManager.hpp" "src/SettingsManager.cpp" "src/FileWatcher.cpp")
+add_executable(QuantomIDE ${APP_SOURCES} "src/Application.cpp"  "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" "include/SettingsManager.hpp" "src/SettingsManager.cpp" "src/FileWatcher.cpp" "src/FileManager.cpp" "src/MenuBar.cpp"  "src/TreeView.cpp" "src/Project.cpp")
 
 target_include_directories(QuantomIDE PRIVATE
     src
@@ -48,7 +51,10 @@ target_include_directories(QuantomIDE PRIVATE
     ${PROJECT_SOURCE_DIR}/vendor/imgui
     ${PROJECT_SOURCE_DIR}/vendor/imgui/backends
     ${PROJECT_SOURCE_DIR}/vendor/glfw/include
-)
+    ${CMAKE_SOURCE_DIR}/vendor/json/single_include
+)# In your main CMakeLists.txt
+
+
 
 target_link_libraries(QuantomIDE PRIVATE imgui glfw OpenGL::GL)
 
