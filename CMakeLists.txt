@@ -23,7 +23,7 @@ set(IMGUI_SOURCES
 )
 
 add_library(imgui STATIC ${IMGUI_SOURCES} "src/Application.cpp"  "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" 
-"src/SettingsManager.cpp" "src/FileWatcher.cpp" "src/FileManager.cpp" "src/MenuBar.cpp"  "src/TreeView.cpp" "src/Project.cpp")
+"src/SettingsManager.cpp" "src/FileWatcher.cpp" "src/FileManager.cpp" "src/MenuBar.cpp"  "src/TreeView.cpp" "src/Project.cpp" "tests/test_FileSystem.cpp")
 
 target_include_directories(imgui PRIVATE
     ${PROJECT_SOURCE_DIR}/include
@@ -38,13 +38,16 @@ target_include_directories(imgui PRIVATE
 # GLFW from submodule
 add_subdirectory(vendor/glfw)
 add_subdirectory(core)
+add_subdirectory(vendor/Catch2)
+add_subdirectory(tests)
+
 
 find_package(OpenGL REQUIRED)
 
 # Collect your app source files (only src/)
 file(GLOB_RECURSE APP_SOURCES "${PROJECT_SOURCE_DIR}/src/*.cpp")
 
-add_executable(QuantomIDE ${APP_SOURCES} "src/Application.cpp"  "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" "include/SettingsManager.hpp" "src/SettingsManager.cpp" "src/FileWatcher.cpp" "src/FileManager.cpp" "src/MenuBar.cpp"  "src/TreeView.cpp" "src/Project.cpp")
+add_executable(QuantomIDE ${APP_SOURCES} "src/Application.cpp"  "src/EditorManager.cpp" "src/BuildSystem.cpp" "src/Debugger.cpp" "src/UIManager.cpp" "include/SettingsManager.hpp" "src/SettingsManager.cpp" "src/FileWatcher.cpp" "src/FileManager.cpp" "src/MenuBar.cpp"  "src/TreeView.cpp" "src/Project.cpp" "tests/test_FileSystem.cpp")
 
 target_include_directories(QuantomIDE PRIVATE
     src
