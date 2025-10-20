@@ -37,6 +37,7 @@ target_include_directories(imgui PRIVATE
 
 # GLFW from submodule
 add_subdirectory(vendor/glfw)
+add_subdirectory(core)
 
 find_package(OpenGL REQUIRED)
 
@@ -56,7 +57,7 @@ target_include_directories(QuantomIDE PRIVATE
 
 
 
-target_link_libraries(QuantomIDE PRIVATE imgui glfw OpenGL::GL)
+target_link_libraries(QuantomIDE PRIVATE imgui glfw OpenGL::GL core)
 
 # Post-build copy runtime folder (optional)
 add_custom_command(TARGET QuantomIDE POST_BUILD
