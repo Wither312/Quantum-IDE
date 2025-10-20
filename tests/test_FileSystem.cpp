@@ -1,6 +1,6 @@
 #define CATCH_CONFIG_MAIN  // Only in one CPP file, usually your main test file
 #include "Core.hpp" 
-#include "UIManager.hpp" 
+#include <catch2/catch_all.hpp>
 
 
 TEST_CASE("FileSystem creates directories correctly", "[FileSystem]") {

@@ -13,6 +13,6 @@ target_link_libraries(UnitTests
 )
 
 # Optional: register tests automatically (for `ctest`)
-include(CTest)
-include(Catch)
-catch_discover_tests(UnitTests)
+#include(CTest)
+#include(Catch)
+#catch_discover_tests(UnitTests)
