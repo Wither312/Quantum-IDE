@@ -1,3 +1,4 @@
+#define NOMINMAX //TODO ADD IN CMAKELITS
 #define CATCH_CONFIG_MAIN  // Only in one CPP file, usually your main test file
 #include "Core.hpp" 
 #include <catch2/catch_all.hpp>

@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
+message(STATUS "UNIX: ${UNIX}")
+message(STATUS "APPLE: ${APPLE}")
+message(STATUS "WIN32: ${WIN32}")
+
 
 # Set the project (optional if set in root)
 set(CMAKE_CXX_STANDARD 20)
