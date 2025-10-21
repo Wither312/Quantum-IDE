@@ -64,7 +64,7 @@ public:
 
 		gtk_widget_destroy(dialog);
 		while (g_main_context_pending(nullptr))
-			g_main_iteration();
+			g_main_iteration(false);
 
 		return filename;
 #endif
@@ -120,13 +120,13 @@ public:
 
 		gtk_widget_destroy(dialog);
 		while (g_main_context_pending(nullptr))
-			g_main_iteration();
+			g_main_iteration(false);
 
 		return filename;
 #endif
 
 	}
-
+#ifdef _WIN32
 	static std::filesystem::path openFolderDialog()
 	{
 		wchar_t folderPath[MAX_PATH] = { 0 };
@@ -148,6 +148,6 @@ public:
 
 		return std::filesystem::path(folderPath);
 	}
-
+#endif
 };
 

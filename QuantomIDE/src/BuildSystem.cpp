@@ -82,8 +82,12 @@ void BuildSystem::RunCurrentProject(const Project& p_Project)
 	char buffer[128];
 
 	// "r" = read the output of the command
+	#ifdef __linux__
+	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
+	#elif _WIN32
 	std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(command.c_str(), "r"), _pclose);
-	if (!pipe)
+	#endif
+	if (!pipe.get())
 		throw std::runtime_error("Failed to run command");
 
 	while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr)

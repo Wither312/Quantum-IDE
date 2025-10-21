@@ -85,7 +85,7 @@ std::optional<std::filesystem::path> openFileDialogLinux() {
 
 	gtk_widget_destroy(dialog);
 	while (g_main_context_pending(nullptr))
-		g_main_iteration();
+		g_main_iteration(false);
 
 	return result;
 }
@@ -115,7 +115,7 @@ static std::optional<std::filesystem::path> saveFileDialogLinux() {
 
 	gtk_widget_destroy(dialog);
 	while (g_main_context_pending(nullptr))
-		g_main_iteration();
+		g_main_iteration(false);
 
 	return result;
 }
@@ -143,7 +143,7 @@ static std::optional<std::filesystem::path> folderDialogLinux() {
 
 	gtk_widget_destroy(dialog);
 	while (g_main_context_pending(nullptr))
-		g_main_iteration();
+		g_main_iteration(false);
 
 	return result;
 }

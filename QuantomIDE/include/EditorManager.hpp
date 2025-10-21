@@ -61,7 +61,9 @@ public:
 	{
 		if (this == nullptr) {
 			std::cerr << "EditorTab 'this' pointer is null!\n";
+			#ifdef MSVC
 			__debugbreak();
+			#endif
 		}
 		if (m_Path.empty() && !m_TabName.empty())
 		{

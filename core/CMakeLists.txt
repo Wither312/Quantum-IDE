@@ -1,5 +1,3 @@
-# core/CMakeLists.txt
-
 cmake_minimum_required(VERSION 3.15)
 
 # Set the project (optional if set in root)
@@ -12,16 +10,25 @@ file(GLOB_RECURSE CORE_HEADERS CONFIGURE_DEPENDS include/*.hpp)
 
 add_library(core STATIC ${CORE_SOURCES} ${CORE_HEADERS})
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GTK REQUIRED gtk+-3.0)  # or gtk+-3.0 for GTK3
 
-# Create static library
-
-
-# Add include path (recursive, starting from "include/")
+# Add GTK include directories and compile flags to core target
 target_include_directories(core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${GTK_INCLUDE_DIRS}
 )
 
-# Enable C++20
+target_compile_options(core PUBLIC
+    ${GTK_CFLAGS_OTHER}
+)
+
+# Link GTK libraries to core target
+target_link_libraries(core PUBLIC
+    ${GTK_LIBRARIES}
+)
+
+# Enable C++20 features
 target_compile_features(core PUBLIC cxx_std_20)
 
 # If using MSVC, enable multi-processor compilation

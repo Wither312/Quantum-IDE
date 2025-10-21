@@ -432,7 +432,7 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 		ImGui::InputText("Project Name", projectName, IM_ARRAYSIZE(projectName));
 
 		if (ImGui::Button("OK", ImVec2(120, 0))) {
-			std::filesystem::path basePath = FileDialog::openFolderDialog();
+			std::filesystem::path basePath ;//= FileDialog::openFileDialog();
 			if (!basePath.empty()) {
 				std::filesystem::path projectDir = basePath / projectName;
 				std::filesystem::create_directory(projectDir);
