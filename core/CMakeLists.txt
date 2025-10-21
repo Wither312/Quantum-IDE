@@ -10,23 +10,30 @@ file(GLOB_RECURSE CORE_HEADERS CONFIGURE_DEPENDS include/*.hpp)
 
 add_library(core STATIC ${CORE_SOURCES} ${CORE_HEADERS})
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTK REQUIRED gtk+-3.0)  # or gtk+-3.0 for GTK3
+if(UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GTK REQUIRED gtk+-3.0)  # or gtk+-3.0 for GTK3
 
-# Add GTK include directories and compile flags to core target
-target_include_directories(core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${GTK_INCLUDE_DIRS}
-)
+    # Add GTK include directories and compile flags to core target
+    target_include_directories(core PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${GTK_INCLUDE_DIRS}
+    )
 
-target_compile_options(core PUBLIC
-    ${GTK_CFLAGS_OTHER}
-)
+    target_compile_options(core PUBLIC
+        ${GTK_CFLAGS_OTHER}
+    )
 
-# Link GTK libraries to core target
-target_link_libraries(core PUBLIC
-    ${GTK_LIBRARIES}
-)
+    # Link GTK libraries to core target
+    target_link_libraries(core PUBLIC
+        ${GTK_LIBRARIES}
+    )
+else()
+    # On other platforms just add your core include directory
+    target_include_directories(core PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+endif()
 
 # Enable C++20 features
 target_compile_features(core PUBLIC cxx_std_20)

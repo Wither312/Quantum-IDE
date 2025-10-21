@@ -21,15 +21,15 @@ set(IMGUI_SOURCES
     ${CMAKE_SOURCE_DIR}/vendor/imgui/backends/imgui_impl_glfw.cpp
     ${CMAKE_SOURCE_DIR}/vendor/imgui/backends/imgui_impl_opengl3.cpp
 )
- find_package(PkgConfig REQUIRED)
-    pkg_check_modules(GTK REQUIRED gtk+-3.0)  # or gtk+-3.0 for GTK3
 
-    include_directories(${GTK_INCLUDE_DIRS})
-    link_directories(${GTK_LIBRARY_DIRS})
-    add_definitions(${GTK_CFLAGS_OTHER})
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GTK REQUIRED gtk+-3.0)  # or gtk+-3.0 for GTK3
 
-    find_package(X11 REQUIRED)
+include_directories(${GTK_INCLUDE_DIRS})
+link_directories(${GTK_LIBRARY_DIRS})
+add_definitions(${GTK_CFLAGS_OTHER})
 
+find_package(X11 REQUIRED)
 
 # ImGui library
 add_library(imgui STATIC ${IMGUI_SOURCES})
@@ -58,12 +58,22 @@ target_include_directories(QuantomIDE PRIVATE
     ${CMAKE_SOURCE_DIR}/core/include
 )
 
-target_link_libraries(QuantomIDE PRIVATE
-    imgui
-    glfw
-    OpenGL::GL
-    core
-    ${X11_LIBRARIES}
-    ${GTK_LIBRARIES}
-
-)
+if(UNIX AND NOT APPLE)
+    # Link Linux-specific libs (X11, GTK)
+    target_link_libraries(QuantomIDE PRIVATE
+        imgui
+        glfw
+        OpenGL::GL
+        core
+        ${X11_LIBRARIES}
+        ${GTK_LIBRARIES}
+    )
+else()
+    # Non-Linux (e.g. Windows) - skip X11 and GTK libs
+    target_link_libraries(QuantomIDE PRIVATE
+        imgui
+        glfw
+        OpenGL::GL
+        core
+    )
+endif()
