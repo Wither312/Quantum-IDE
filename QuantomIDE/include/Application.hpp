@@ -1,8 +1,8 @@
 #pragma once
-
+#define IMGUI_ENABLE_DOCKING
 #include <string>
 #include <memory>
-#include "imgui.h"
+#include <imgui.h>
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <stdio.h>
@@ -53,6 +53,7 @@ private:
     void InitImGui();
     void Shutdown();
 
+    void ShowMainDockSpaceWithStatusBar();
     void ShowMainDockSpace();
 
     void BeginFrame();
@@ -67,6 +68,7 @@ private:
     bool m_Running = false;
     bool show_demo_window = true;
     bool show_another_window = false;
+    bool m_debugSessionActive = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     

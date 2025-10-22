@@ -13,12 +13,13 @@ static std::string boilerPlate =
 "    return 0;\n"
 "}\n";
 
-
-
 #include "imgui.h"
 #include <imgui_internal.h>
 
-void DrawEditorTabs(EditorManager& editor, Project& p_Project)
+
+
+
+static inline void DrawEditorTabs(EditorManager& editor, Project& p_Project)
 {
 	auto& tabBar = editor.getTabBar();
 	int tabCount = tabBar.getTabCount();
@@ -120,6 +121,7 @@ static void DrawEditorDockspace(EditorManager& editor, Project& p_Project)
 		ImGui::DockBuilderFinish(dockspace_id);
 	}
 
+
 	// Console window
 	ImGui::Begin("Console");
 
@@ -139,6 +141,8 @@ static void DrawEditorDockspace(EditorManager& editor, Project& p_Project)
 
 void UIManager::drawEditor(EditorManager& editor, Project& p_Project)
 {
+
+
 	ImGuiID rootDockspaceID = ImGui::GetID("MyDockSpace"); // Must match Application::ShowMainDockSpace()
 
 	static bool initialized = false;
@@ -342,6 +346,7 @@ void UIManager::drawTreeView(TreeView& p_TreeView, Project& p_Project)
 void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& p_Project)
 {
 	extern core::Core g_Core;
+	
 	if (ImGui::BeginMainMenuBar())
 	{
 		// FILE MENU

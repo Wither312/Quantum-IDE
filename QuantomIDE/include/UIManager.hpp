@@ -1,4 +1,5 @@
 #pragma once
+#define IMGUI_ENABLE_DOCKING
 #include <imgui.h>
 #include <vector>
 #include <cstring> 

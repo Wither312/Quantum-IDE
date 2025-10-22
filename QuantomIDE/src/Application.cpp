@@ -1,6 +1,7 @@
 ﻿#include "Application.hpp"
 #include <Core.hpp>
-
+#include <imgui_internal.h>
+#define IMGUI_ENABLE_DOCKING
 
 core::Core g_Core;
 
@@ -21,7 +22,7 @@ Application::Application(const std::string& title, int width, int height)
 		ImGuiWindowFlags_NoResize |
 		ImGuiWindowFlags_NoCollapse;
 
-	
+
 	if (!g_Core.initialize())
 	{
 		std::cerr << "Core not init!\n";
@@ -45,6 +46,18 @@ void Application::Run()
 
 	Shutdown();
 }
+enum class IDEStatus {
+	Ready,
+	Building,
+	Debugging,
+	Error,
+	Warning
+};
+
+IDEStatus currentIDEStatus = IDEStatus::Ready;
+
+
+
 void Application::ShowMainDockSpace()
 {
 	static bool dockspaceOpen = true;
@@ -93,7 +106,7 @@ void Application::ShowMainDockSpace()
 	ImGui::SameLine();
 	if (ImGui::Button("Build")) {
 		// Handle build action
-		m_BuildSytem.BuildCurrentProject(m_Editor,m_Project);
+		m_BuildSytem.BuildCurrentProject(m_Editor, m_Project);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Run")) {
@@ -104,8 +117,56 @@ void Application::ShowMainDockSpace()
 	if (ImGui::Button("Build and Run"))
 	{
 		// Handle build action
-		m_BuildSytem.BuildCurrentProject(m_Editor,m_Project);
+		m_BuildSytem.BuildCurrentProject(m_Editor, m_Project);
 		m_BuildSytem.RunCurrentProject(m_Project);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Debug"))
+	{
+		if (!m_debugSessionActive) m_debugSessionActive = true;
+		
+		
+	}
+	if(m_debugSessionActive)
+	{
+		ImGui::SameLine();
+		ImGui::Text("|");
+		ImGui::SameLine();
+		if (ImGui::Button("Stop Debug"))
+		{
+			if (m_debugSessionActive) m_debugSessionActive = false;
+			
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Pause"))
+		{
+			// Handle build action
+			
+			
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Step Over"))
+		{
+			// Handle build action
+			
+			
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Step Into"))
+		{
+			// Handle build action
+			
+			
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Step Out"))
+		{
+			// Handle build action
+			
+			
+		}
+
+
 	}
 	// Add more buttons as needed...
 
@@ -118,6 +179,7 @@ void Application::ShowMainDockSpace()
 	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 
 }
+
 
 void Application::Update()
 {
@@ -134,7 +196,7 @@ void Application::Update()
 		this->BeginFrame();
 
 		ShowMainDockSpace();
-
+	
 		bool ctrlPressed = m_IO->KeyCtrl;  // or io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
 		if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_S)) {
 			// Save action here
@@ -197,7 +259,7 @@ void Application::InitImGui()
 
 	float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor()); // Valid on GLFW 3.3+ only
 	const char* glsl_version = "#version 130";
-	
+
 	// Setup scaling
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
