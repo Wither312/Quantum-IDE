@@ -9,7 +9,6 @@
 #include "EditorManager.hpp"
 #include "TreeView.hpp"
 #include "MenuBar.hpp"
-#include "FileDialog.hpp"
 
 class UIManager {
 public:

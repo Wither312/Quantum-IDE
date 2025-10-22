@@ -22,9 +22,8 @@ namespace core
 		Platform() = delete;
 		Platform(const Platform&) = delete;
 		Platform& operator=(const Platform&) = delete;
-
-		static std::optional<std::filesystem::path> openFileDialog();
-		static std::optional<std::filesystem::path> saveFileDialog();
+		static std::optional<std::filesystem::path> openFileDialog(const char* filters = nullptr);
+		static std::optional<std::filesystem::path> saveFileDialog(const char* filters = nullptr);
 		static std::optional<std::filesystem::path> folderDialog();
 	};
 

@@ -1,6 +1,11 @@
 #include "Platform.hpp"
 using namespace core;
 
+
+
+
+
+
 #ifdef _WIN32
 std::optional<std::filesystem::path> openFileDialogWin32(const char* filter = nullptr) {
 	OPENFILENAMEA ofn;
@@ -151,10 +156,9 @@ static std::optional<std::filesystem::path> folderDialogLinux() {
 #endif // __linux__
 
 // Public API
-
-std::optional<std::filesystem::path> Platform::openFileDialog() {
+std::optional<std::filesystem::path> Platform::openFileDialog(const char* filters) {
 #ifdef _WIN32
-	return openFileDialogWin32();
+	return openFileDialogWin32(filters);
 #elif defined(__linux__)
 	return openFileDialogLinux();
 #else
@@ -162,9 +166,9 @@ std::optional<std::filesystem::path> Platform::openFileDialog() {
 #endif
 }
 
-std::optional<std::filesystem::path> Platform::saveFileDialog() {
+std::optional<std::filesystem::path> Platform::saveFileDialog(const char* filters) {
 #ifdef _WIN32
-	return saveFileDialogWin32();
+	return saveFileDialogWin32(filters);
 #elif defined(__linux__)
 	return saveFileDialogLinux();
 #else

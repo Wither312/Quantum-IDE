@@ -1,5 +1,8 @@
 ﻿#include "Application.hpp"
+#include <Core.hpp>
 
+
+core::Core g_Core;
 
 inline static void glfw_error_callback(int error, const char* description)
 {
@@ -18,6 +21,11 @@ Application::Application(const std::string& title, int width, int height)
 		ImGuiWindowFlags_NoResize |
 		ImGuiWindowFlags_NoCollapse;
 
+	
+	if (!g_Core.initialize())
+	{
+		std::cerr << "Core not init!\n";
+	}
 
 }
 Application::~Application()

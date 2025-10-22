@@ -6,6 +6,9 @@
 #include <string>
 #include <filesystem>
 #include <iostream>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include "FileManager.hpp"
 
 // Forward declarations
@@ -92,30 +95,7 @@ public:
 
 	void addTab(std::unique_ptr<EditorTab> tab);
 	void closeTab(int index);
-	void saveAll()
-	{
-		for (auto& tab : m_Tabs)
-		{
-
-			if (!tab) {
-				std::cerr << "[Warning] Tab does not exist.\n";
-			}
-			else {
-				if (tab->getFilePath().empty()) {
-					
-					std::string filePath = FileDialog::saveFileDialog();
-					if (!filePath.empty()) { // user selected a path
-						tab->setFilePath(filePath);
-						tab->setTabName(std::filesystem::path(filePath).filename().string());
-						FileManager::saveFile(filePath, tab->getDocument().getText());
-					}
-				}
-				else {
-					FileManager::saveFile(tab->getFilePath(), tab->getDocument().getText());
-				}
-			}
-		}
-	}
+	void saveAll();
 	EditorTab* getTab(int index);
 
 	int getTabCount() const;

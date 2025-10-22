@@ -8,7 +8,7 @@
 #include "FileSystem.hpp"
 #include "Events.hpp"
 #include "FileWatcher.hpp"
-#include "Logger.hpp"
+#include "Log.hpp"
 #include "MemoryPool.hpp"
 #include "Platform.hpp"
 #include "ThreadPool.hpp"
@@ -17,7 +17,7 @@
 
 namespace core {
 
-    class Logger;
+    class Log;
     class ThreadPool;
     class MemoryPool;
     class EventBus;
@@ -37,7 +37,7 @@ namespace core {
 
         void log(std::string_view message) const;
 
-        Logger* getLogger() const noexcept;
+        Log* getLogger() const noexcept;
         ThreadPool* getThreadPool() const noexcept;
         MemoryPool* getMemoryPool() const noexcept;
         EventBus* getEventBus() const noexcept;
@@ -46,7 +46,7 @@ namespace core {
     private:
         bool m_initialized = false;
 
-        std::unique_ptr<Logger> m_logger;
+        std::unique_ptr<Log> m_logger;
         std::unique_ptr<ThreadPool> m_threadPool;
         std::unique_ptr<MemoryPool> m_memoryPool;
         std::unique_ptr<EventBus> m_eventBus;

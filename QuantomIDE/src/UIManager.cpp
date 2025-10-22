@@ -1,4 +1,5 @@
 ﻿#include "UIManager.hpp"
+#include <Core.hpp>
 // For strncpy
 static bool showPopup = false;
 static bool projectOpen = false;
@@ -58,7 +59,7 @@ static void DrawEditorDockspaceWithConsoleAndOutput()
 }
 
 
-void UIManager::drawEditor(EditorManager& editor,Project& p_Project)
+void UIManager::drawEditor(EditorManager& editor, Project& p_Project)
 {
 	auto& tabBar = editor.getTabBar();
 	int tabCount = tabBar.getTabCount();
@@ -142,7 +143,7 @@ void UIManager::drawEditor(EditorManager& editor,Project& p_Project)
 				}
 				if (ImGui::MenuItem("Compile"))
 				{
-					contextMenu = false; 
+					contextMenu = false;
 				}
 				ImGui::EndPopup();
 			}
@@ -226,8 +227,9 @@ void UIManager::drawTreeView(TreeView& p_TreeView, Project& p_Project)
 			}
 			else
 			{
+				extern core::Core g_Core;
 
-				std::filesystem::path selected = FileDialog::openFileDialog();
+				std::filesystem::path selected = g_Core.getFileSystem()->openFile().value();
 				if (!selected.empty())
 				{
 					auto relPath = std::filesystem::relative(selected, rootDir);
@@ -274,6 +276,7 @@ void UIManager::drawTreeView(TreeView& p_TreeView, Project& p_Project)
 
 void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& p_Project)
 {
+	extern core::Core g_Core;
 	if (ImGui::BeginMainMenuBar())
 	{
 		if (ImGui::BeginMenu("File"))
@@ -286,10 +289,14 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 			if (ImGui::MenuItem("Open..."))
 			{
 #ifdef WIN32
-				std::string selectedFile = FileDialog::openFileDialog("Text Files\0*.txt\0C++ Files\0*.cpp;*.h\0All Files\0*.*\0");
+				auto selectedFile = g_Core.getFileSystem()->openFile("Text Files\0*.txt\0C++ Files\0*.cpp;*.h\0All Files\0*.*\0").value();
+				std::fstream fileData(selectedFile, std::ios::in);
+				std::string buffer;
+				fileData >> buffer;
+
 				if (!selectedFile.empty()) {
 					// Handle file open, e.g. load file contents into your editor
-					p_Editor.openFile(selectedFile);
+					p_Editor.openFile(selectedFile.string());
 
 				}
 
@@ -303,7 +310,7 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 				}
 				else {
 					if (tab->getFilePath().empty()) {
-						std::string filePath = FileDialog::saveFileDialog();
+						auto filePath = g_Core.getFileSystem()->saveFile().value();
 						if (!filePath.empty()) { // user selected a path
 							tab->setFilePath(filePath);
 							tab->setTabName(std::filesystem::path(filePath).filename().string());
@@ -318,7 +325,7 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 
 			if (ImGui::MenuItem("Save As")) {
 				const auto& tab = p_Editor.getTabBar().getCurrentTab();
-				std::string filePath = FileDialog::saveFileDialog();
+				auto filePath = g_Core.getFileSystem()->saveFile().value();
 				if (!filePath.empty()) { // always good to check for cancel
 					tab->setFilePath(filePath);
 					tab->setTabName(std::filesystem::path(filePath).filename().string());
@@ -354,7 +361,7 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 			if (ImGui::MenuItem("Open"))
 			{
 				// Open file dialog to pick a project file (e.g. .qprj or similar)
-				std::string filePath = FileDialog::openFileDialog("Project Files\0*.qprj\0All Files\0*.*\0");
+				auto filePath = g_Core.getFileSystem()->openFile("Project Files\0*.qprj\0All Files\0*.*\0").value();
 				if (!filePath.empty())
 				{
 					if (p_Project.open(filePath))
@@ -364,7 +371,7 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 							p_Editor.openFile(file.string());
 
 						}
-						
+
 
 						// Show error popup or message
 					}
@@ -432,7 +439,7 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 		ImGui::InputText("Project Name", projectName, IM_ARRAYSIZE(projectName));
 
 		if (ImGui::Button("OK", ImVec2(120, 0))) {
-			std::filesystem::path basePath ;//= FileDialog::openFileDialog();
+			std::filesystem::path basePath;//= FileDialog::openFileDialog();
 			if (!basePath.empty()) {
 				std::filesystem::path projectDir = basePath / projectName;
 				std::filesystem::create_directory(projectDir);

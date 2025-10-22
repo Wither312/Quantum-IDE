@@ -1,30 +1,32 @@
 #pragma once
+#include <iostream>
+class ScopedTimer
+{
+private:
+	const char* m_Data;
+public:
+	void WriteInColor(unsigned short color, std::string outputString)
+	{
+		HANDLE hcon = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(hcon, color);
+		std::cout << "[" << outputString << "]: ";
+		SetConsoleTextAttribute(hcon, 7);
+	}
+	std::chrono::time_point<std::chrono::steady_clock> start, end;
+	std::chrono::duration<float> duration;
+	ScopedTimer(const char* data) : m_Data(data), duration(0)
+	{
+		start = std::chrono::high_resolution_clock::now();
+	}
+	~ScopedTimer()
+	{
+		end = std::chrono::high_resolution_clock::now();
+		duration = end - start;
 
-#include <chrono>
-#include <concepts>
-#include <cstdint>
+		float ms = duration.count() * 1000.0f;
 
-namespace core {
+		WriteInColor(10, m_Data);
+		std::cout << ms << " ms" << std::endl;
+	}
+};
 
-    class Timer {
-    public:
-        Timer() noexcept;
-
-        // Resets the timer to now
-        void reset() noexcept;
-
-        // Returns elapsed time in seconds as double
-        [[nodiscard]] double elapsed() const noexcept;
-
-        // Returns elapsed time in milliseconds as integral type
-        template<std::integral Int = int64_t>
-        [[nodiscard]] Int elapsedMillis() const noexcept {
-            using namespace std::chrono;
-            return duration_cast<milliseconds>(high_resolution_clock::now() - m_start).count();
-        }
-
-    private:
-        std::chrono::high_resolution_clock::time_point m_start;
-    };
-
-} // namespace core

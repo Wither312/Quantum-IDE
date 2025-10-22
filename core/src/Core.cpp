@@ -13,12 +13,13 @@
 using namespace core;
 
 Core::Core()
-	: m_logger(std::make_unique<Logger>())
+	: m_logger(std::make_unique<Log>())
 	, m_threadPool(std::make_unique<ThreadPool>())
 	, m_memoryPool(std::make_unique<MemoryPool>())
 	, m_eventBus(std::make_unique<EventBus>())
 	, m_fileSystem(std::make_unique<FileSystem>())  // initialize here
 {
+	LOG("Core is initilazed", Log::LogLevel::Tracer);
 }
 
 Core::~Core() = default;
@@ -43,11 +44,10 @@ bool Core::isInitialized() const noexcept
 
 void Core::log(std::string_view message) const
 {
-	if (m_logger)
-		m_logger->log(message);
+
 }
 
-Logger* Core::getLogger() const noexcept { return m_logger.get(); }
+core::Log* Core::getLogger() const noexcept { return m_logger.get(); }
 ThreadPool* Core::getThreadPool() const noexcept { return m_threadPool.get(); }
 MemoryPool* Core::getMemoryPool() const noexcept { return m_memoryPool.get(); }
 EventBus* Core::getEventBus() const noexcept { return m_eventBus.get(); }

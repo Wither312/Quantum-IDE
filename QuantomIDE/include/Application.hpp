@@ -19,6 +19,7 @@
 
 // Forward declarations to avoid unnecessary includes
 struct GLFWwindow;
+class Core;
 
 // Application class managing the core lifecycle
 class Application
