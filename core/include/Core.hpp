@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string_view>
+#include <vector>
 
 #include "EventBus.hpp"
 #include "FileSystem.hpp"

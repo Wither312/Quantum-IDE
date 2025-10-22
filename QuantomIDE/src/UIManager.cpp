@@ -126,7 +126,7 @@ void UIManager::drawEditor(EditorManager& editor,Project& p_Project)
 			{
 				contextMenu = true;
 			}
-			if (ImGui::BeginPopupContextItem()) // This opens on right-click
+			if (ImGui::BeginPopupContextItem("customID_1")) // This opens on right-click
 			{
 				if (ImGui::MenuItem("Add file to project"))
 				{

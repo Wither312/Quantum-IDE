@@ -73,21 +73,30 @@ std::vector<std::filesystem::path> FileSystem::listFiles(const std::filesystem::
     }
     return files;
 }
-#include "FileSystem.hpp"
 
-using namespace core;
-
-std::optional<std::filesystem::path> FileSystem::openFile()
+std::optional<std::string> FileSystem::openFile(std::filesystem::path path)
 {
-    return Platform::openFileDialog();
+    if(!path.empty())
+    {
+        if(std::filesystem::exists(path))
+        {
+            //return contents of ifle
+            std::ifstream fileStream(path);
+            std::string buffer;
+            fileStream >> buffer;
+            return buffer;
+        }
+    }
+    return std::string();
 }
 
-std::optional<std::filesystem::path> FileSystem::saveFile()
+std::optional<std::filesystem::path> FileSystem::saveFile(std::filesystem::path path)
 {
     return Platform::saveFileDialog();
 }
 
-std::optional<std::filesystem::path> FileSystem::openFolder()
+std::optional<std::filesystem::path> FileSystem::openFolder(std::filesystem::path path)
 {
+    
     return Platform::folderDialog();
 }

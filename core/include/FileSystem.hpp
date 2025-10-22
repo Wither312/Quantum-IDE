@@ -22,9 +22,9 @@ namespace core {
         static bool writeFile(const std::filesystem::path& filePath, std::string_view content);
 
         static std::vector<std::filesystem::path> listFiles(const std::filesystem::path& directory, bool recursive = false);
-        std::optional<std::filesystem::path> openFile();
-        std::optional<std::filesystem::path> saveFile();
-        std::optional<std::filesystem::path> openFolder();
+        static std::optional<std::string> openFile(std::filesystem::path = std::filesystem::path());
+        static std::optional<std::filesystem::path> saveFile(std::filesystem::path = std::filesystem::path());
+        static std::optional<std::filesystem::path> openFolder(std::filesystem::path = std::filesystem::path());
     };
 
 } // namespace core

@@ -6,7 +6,6 @@
 #include <string>
 #include <filesystem>
 #include <iostream>
-#include "FileDialog.hpp"
 #include "FileManager.hpp"
 
 // Forward declarations
@@ -103,6 +102,7 @@ public:
 			}
 			else {
 				if (tab->getFilePath().empty()) {
+					
 					std::string filePath = FileDialog::saveFileDialog();
 					if (!filePath.empty()) { // user selected a path
 						tab->setFilePath(filePath);
