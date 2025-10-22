@@ -9,6 +9,8 @@
 #include <vector>
 #include <iostream>
 
+
+#include <Log.hpp>
 #include "Project.hpp"
 #include "EditorManager.hpp"
 
@@ -60,7 +62,8 @@ enum class CompilerFlag {
 	Pedantic,   // -pedantic (strict standard compliance)
 	StdLibcxx,  // -stdlib=libc++ (choose libc++ standard library, useful on some platforms)
 	NoExceptions, // -fno-exceptions
-	NoRtti       // -fno-rtti
+	NoRtti,       // -fno-rtti
+	Verbose
 };
 
 
@@ -101,6 +104,7 @@ static std::string to_string(CompilerFlag flag) {
 	case CompilerFlag::StdLibcxx: return "-stdlib=libc++";
 	case CompilerFlag::NoExceptions: return "-fno-exceptions";
 	case CompilerFlag::NoRtti: return "-fno-rtti";
+	case CompilerFlag::Verbose: return "-v";
 	}
 	return "";
 }
@@ -127,7 +131,7 @@ class BuildSystem {
 public:
 	BuildSystem();
 
-	void BuildCurrentProject( EditorManager&, const Project& );
+	void BuildCurrentProject( EditorManager&, Project& );
 	void RunCurrentProject(const Project& p_Project);
 
 	std::string BuildFlags(const std::vector<CompilerFlag>&);
@@ -143,6 +147,12 @@ public:
 	//    "-lm"              // math lib
 	//    };
 	//
+	static std::mutex s_ConsoleMutex;
+	static std::string s_ConsoleOutput;
+
+	static std::mutex s_OutputMutex;
+	static std::string s_BuildOutput;
+	std::mutex m_BuildMutex;
 private:
 	Compiler m_Compiler;
 	std::vector<CompilerFlag> m_BuildFlags;
@@ -151,7 +161,7 @@ private:
 
 	char m_EditorBuffer[1024 * 16];
 	std::atomic_bool m_IsBuilding; // ne se global, static znaci deka kje ima samo vo toj translation unit ili obj file, mislese deka se global zs pravese vo cpp, toa e samo init sto pravis vo cpp inc tuka se deklarirani
-	std::string m_BuildOutput;
-	std::mutex m_BuildMutex;
+
+
 
 };

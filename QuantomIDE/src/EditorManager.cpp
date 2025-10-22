@@ -1,8 +1,22 @@
 // EditorManager.cpp
-
 #include "EditorManager.hpp"
-
 #include <Core.hpp>
+extern core::Core g_Core;
+
+
+
+static std::string GenerateRandomID()
+{
+	static std::mt19937 rng(std::random_device{}());
+	static std::uniform_int_distribution<int> dist(0, 15);
+
+	std::stringstream ss;
+	ss << std::hex;
+	for (int i = 0; i < 8; ++i) {
+		ss << dist(rng);
+	}
+	return ss.str(); // e.g., "a3f9b12e"
+}
 
 // -------- Document --------
 
@@ -11,6 +25,7 @@ void Document::setText(const std::string& text)
 	m_TextBuffer = text;
 	m_UndoStack.clear();
 	m_RedoStack.clear();
+	m_Dirty = true;
 }
 
 std::string& Document::getText()
@@ -76,8 +91,19 @@ TabBar::~TabBar() = default;
 
 void TabBar::addTab(std::unique_ptr<EditorTab> tab)
 {
+	std::string id;
+
+	do {
+		id = GenerateRandomID();
+	} while (std::any_of(m_Tabs.begin(), m_Tabs.end(),
+		[&](const std::unique_ptr<EditorTab>& existingTab) {
+			return existingTab->getID() == id;
+		}));
+
+	tab->setID(id);
 	m_Tabs.push_back(std::move(tab));
 }
+
 
 void TabBar::closeTab(int index)
 {
@@ -158,28 +184,39 @@ void TabBar::saveAll()
 {
 	for (auto& tab : m_Tabs)
 	{
-
 		if (!tab) {
-			std::cerr << "[Warning] Tab does not exist.\n";
+			LOG("Tab does not exist", core::Log::LogLevel::Warn);
 		}
 		else {
-			if (tab->getFilePath().empty())
+			auto path = tab->save();
+			if (!path.has_value())
 			{
-				extern core::Core g_Core;
-				if (!g_Core.getFileSystem()->saveFile(tab->getFilePath()).has_value())
-				{
-					std::cerr << "Couldn't save file\n";
-				}
-				std::filesystem::path filePath = g_Core.getFileSystem()->saveFile(tab->getFilePath()).value();
-				if (!filePath.empty()) { // user selected a path
-					tab->setFilePath(filePath);
-					tab->setTabName(std::filesystem::path(filePath).filename().string());
-					FileManager::saveFile(filePath, tab->getDocument().getText());
-				}
+				LOG("Warning: File failed to save.", core::Log::LogLevel::Warn);
+				continue;
 			}
-			else {
-				FileManager::saveFile(tab->getFilePath(), tab->getDocument().getText());
-			}
+			tab->setFilePath(path.value());
+			tab->setTabName(std::filesystem::path(path.value()).filename().string());
+			tab->getDocument().markClean();
 		}
 	}
+}
+std::optional<std::filesystem::path> EditorTab::save()
+{
+	auto buffer = m_Document.get()->getText();
+	auto path = g_Core.getFileSystem()->saveFile(buffer, m_Path);
+	if (path.has_value())
+	{
+
+		setTabName(path.value().filename().string());
+		setFilePath(path.value());
+		m_Document.get()->markClean();
+		return std::optional<std::filesystem::path>(m_Path);
+	}
+	LOG("Warning: File save operation failed or was cancelled by user.", core::Log::LogLevel::Warn);
+	return std::nullopt;
+}
+void TabBar::closeAll()
+{
+	m_Tabs.clear();
+	m_Tabs.shrink_to_fit();
 }

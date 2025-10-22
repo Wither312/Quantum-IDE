@@ -57,7 +57,7 @@ public:
 	bool isDirty() const { return dirty; }
 	bool isOpen() const { return isopen; }
 	bool open(const std::filesystem::path& path);
-	bool save() const;
+	bool save() ;
 
 	void addResourceFile(const std::filesystem::path& file) {}
 	void addHeaderFile(const std::filesystem::path& file){}

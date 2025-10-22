@@ -1,5 +1,6 @@
 ﻿#include "UIManager.hpp"
 #include <Core.hpp>
+#include "BuildSystem.hpp"
 // For strncpy
 static bool showPopup = false;
 static bool projectOpen = false;
@@ -17,60 +18,13 @@ static std::string boilerPlate =
 #include "imgui.h"
 #include <imgui_internal.h>
 
-static void DrawEditorDockspaceWithConsoleAndOutput()
-{
-	// Create internal dockspace
-	ImGuiID editor_dock_id = ImGui::GetID("EditorInnerDockspace");
-	ImVec2 dockspace_size = ImGui::GetContentRegionAvail();
-	ImGui::DockSpace(editor_dock_id, dockspace_size, ImGuiDockNodeFlags_None);
-
-	// Setup layout once
-	static bool initialized = false;
-	if (!initialized)
-	{
-		initialized = true;
-
-		ImGui::DockBuilderRemoveNode(editor_dock_id); // Clear any previous layout
-		ImGui::DockBuilderAddNode(editor_dock_id, ImGuiDockNodeFlags_DockSpace);
-		ImGui::DockBuilderSetNodeSize(editor_dock_id, dockspace_size);
-
-		// Split top (main editor area) and bottom (for tabs)
-		ImGuiID dock_main = ImGui::DockBuilderSplitNode(editor_dock_id, ImGuiDir_Up, 0.6f, nullptr, &editor_dock_id);
-		ImGuiID dock_bottom = ImGui::DockBuilderSplitNode(editor_dock_id, ImGuiDir_Down, 0.4f, nullptr, &editor_dock_id);
-
-		// Tab both in bottom
-		ImGui::DockBuilderDockWindow("Console", dock_bottom);
-		ImGui::DockBuilderDockWindow("Output", dock_bottom);
-
-		ImGui::DockBuilderFinish(editor_dock_id);
-	}
-
-	// End Editor window *after* building dockspace and drawing tabbed windows
-
-	// Begin/End Console window
-	ImGui::Begin("Console");
-	ImGui::Text("Console output here...");
-	ImGui::End();
-
-	// Begin/End Output window
-	ImGui::Begin("Output");
-	ImGui::Text("Build output here...");
-	ImGui::End();
-}
-
-
-void UIManager::drawEditor(EditorManager& editor, Project& p_Project)
+void DrawEditorTabs(EditorManager& editor, Project& p_Project)
 {
 	auto& tabBar = editor.getTabBar();
 	int tabCount = tabBar.getTabCount();
 
-	ImGuiID dock_id = ImGui::GetID("MyDockSpace");
-	ImGui::SetNextWindowDockID(dock_id, ImGuiCond_FirstUseEver);
-	ImGui::Begin("Editor");
-	DrawEditorDockspaceWithConsoleAndOutput();
 	if (tabCount == 0) {
 		ImGui::Text("No files open.");
-		ImGui::End();
 		return;
 	}
 
@@ -80,76 +34,187 @@ void UIManager::drawEditor(EditorManager& editor, Project& p_Project)
 			if (!tab)
 				continue;
 
-			const std::string& tabName = tab->getTabName(); // You need this getter in EditorTab
+			std::string tabLabel = tab->getTabName();  // Visible part
+			if (tab->getDocument().isDirty())
+				tabLabel += "*";
 
+			// Append unique ID (invisible) to avoid ImGui ID collisions
+			tabLabel += "##" + tab->getID();
 
-
-			if (ImGui::BeginTabItem(tabName.c_str())) {
+			if (ImGui::BeginTabItem(tabLabel.c_str())) {
 				auto& docText = tab->getDocument().getText();
 
-				// Buffer size (16 KB)
 				static std::vector<char> buffer(1024 * 16, 0);
-
-				// Copy text into buffer safely
 				strncpy(buffer.data(), docText.c_str(), buffer.size() - 1);
 				buffer[buffer.size() - 1] = '\0';
 
+				// Fill the remaining vertical space in the Editor window
+				ImVec2 availableSpace = ImGui::GetContentRegionAvail();
+
 				if (ImGui::InputTextMultiline("##source", buffer.data(), buffer.size(),
-					ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16))) {
+					availableSpace)) {
 					tab->getDocument().setText(std::string(buffer.data()));
 				}
 
 
 				ImGui::EndTabItem();
 			}
+
 			if (ImGui::IsItemHovered()) {
-				// Tab header is hovered
-				if (tab->getFilePath() != "")
-				{
+				if (!tab->getFilePath().empty()) {
 					std::string filePath = tab->getFilePath().string();
-					ImGui::SetTooltip("File lcoation: %s", filePath.c_str());
+					ImGui::SetTooltip("File location: %s", filePath.c_str());
 				}
-				// Or do other hover-related stuff here
 			}
-			if (ImGui::IsItemClicked())
-			{
-				//get the position of the item in the vector and set current tab to that -1 because 0 is first element
+
+			if (ImGui::IsItemClicked()) {
 				editor.getTabBar().setCurrentTabIndex(i);
-				std::cout << "Tab " << i << " is clicked!\n";
+				LOG("%s", core::Log::LogLevel::Tracer, ("Tab " + std::to_string(i) + " has been clicked!").c_str());
 			}
-			if (ImGui::IsItemClicked(ImGuiMouseButton_Middle))
-			{
+			if (ImGui::IsItemClicked(ImGuiMouseButton_Middle)) {
 				editor.getTabBar().closeTab(i);
 				std::cout << "Tab " << i << " (MMB) is clicked!\n";
 			}
-			static bool contextMenu = false;
-			if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-			{
-				contextMenu = true;
-			}
-			if (ImGui::BeginPopupContextItem("customID_1")) // This opens on right-click
-			{
-				if (ImGui::MenuItem("Add file to project"))
-				{
-					if (p_Project.isOpen())
-					{
+
+			if (ImGui::BeginPopupContextItem("customID_1")) {
+				if (ImGui::MenuItem("Add file to project")) {
+					if (p_Project.isOpen()) {
 						p_Project.addSourceFile(editor.getTabBar().getCurrentTab()->getFilePath());
 					}
-					else
-					{
-						projectOpen = true;
-					}
-					contextMenu = false;
 				}
-				if (ImGui::MenuItem("Compile"))
-				{
-					contextMenu = false;
+				if (ImGui::MenuItem("Compile")) {
+					// Handle compile
 				}
 				ImGui::EndPopup();
 			}
 		}
 		ImGui::EndTabBar();
 	}
+}
+
+
+static void DrawEditorDockspace(EditorManager& editor, Project& p_Project)
+{
+	ImGuiID dockspace_id = ImGui::GetID("MainEditorDockspace");
+
+	ImVec2 dockspace_size = ImGui::GetContentRegionAvail();
+	ImGui::DockSpace(dockspace_id, dockspace_size, ImGuiDockNodeFlags_None);
+
+	static bool initialized = false;
+	if (!initialized)
+	{
+		initialized = true;
+
+		ImGui::DockBuilderRemoveNode(dockspace_id);
+		ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+		ImGui::DockBuilderSetNodeSize(dockspace_id, dockspace_size);
+
+		// Split into top (editor), bottom (console/output)
+		ImGuiID dock_main = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Up, 0.7f, nullptr, &dockspace_id);
+		ImGuiID dock_bottom = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Down, 0.3f, nullptr, &dockspace_id);
+
+		ImGui::DockBuilderDockWindow("Editor", dock_main);
+		ImGui::DockBuilderDockWindow("Console", dock_bottom);
+		ImGui::DockBuilderDockWindow("Output", dock_bottom);
+
+		ImGui::DockBuilderFinish(dockspace_id);
+	}
+
+	// Console window
+	ImGui::Begin("Console");
+
+	ImGui::Text("Console output here...");
+	ImGui::End();
+
+	// Output window
+	ImGui::Begin("Output");
+	ImGui::Text("Build output here...");
+	ImGui::End();
+
+	// Editor window
+	ImGui::Begin("Editor");
+	DrawEditorTabs(editor, p_Project);
+	ImGui::End();
+}
+
+void UIManager::drawEditor(EditorManager& editor, Project& p_Project)
+{
+	ImGuiID rootDockspaceID = ImGui::GetID("MyDockSpace"); // Must match Application::ShowMainDockSpace()
+
+	static bool initialized = false;
+	if (!initialized)
+	{
+		initialized = true;
+
+		// Clean up any existing layout
+		ImGui::DockBuilderRemoveNode(rootDockspaceID);
+		ImGui::DockBuilderAddNode(rootDockspaceID, ImGuiDockNodeFlags_DockSpace);
+
+		// Set size (usually viewport size for fullscreen)
+		ImGui::DockBuilderSetNodeSize(rootDockspaceID, ImGui::GetMainViewport()->WorkSize);
+
+		// 1. Split into LEFT and RIGHT (left = 16% width)
+		ImGuiID dock_left = 0;
+		ImGuiID dock_right = 0;
+		ImGui::DockBuilderSplitNode(rootDockspaceID, ImGuiDir_Left, 0.16f, &dock_left, &dock_right);
+
+		// 2. Dock File Explorer and Project into LEFT dock (tabbed together)
+		ImGui::DockBuilderDockWindow("File Explorer", dock_left);
+		ImGui::DockBuilderDockWindow("Project", dock_left);
+
+		// 3. Dock Editor, Console, Output all into RIGHT dock (tabbed together)
+		ImGui::DockBuilderDockWindow("Editor", dock_right);
+		ImGui::DockBuilderDockWindow("Console", dock_right);
+		ImGui::DockBuilderDockWindow("Output", dock_right);
+
+		ImGui::DockBuilderFinish(rootDockspaceID);
+	}
+
+	// 🧱 Create docked windows
+	ImGui::Begin("Editor");
+	DrawEditorTabs(editor, p_Project);
+	ImGui::End();
+
+	ImGui::Begin("Console");
+	{
+
+		// Option 1: Read-only multiline with wrapping (better for logs)
+		ImGui::TextWrapped("%s", BuildSystem::s_ConsoleOutput.c_str());
+
+		// Option 2: Editable multiline text box (if you want it editable)
+		static std::string buffer;
+		buffer = BuildSystem::s_ConsoleOutput; // update buffer with latest output
+
+		// Create a char buffer (InputTextMultiline needs char*), static so it persists
+		static std::vector<char> charBuffer(1024 * 16, 0);
+		strncpy(charBuffer.data(), buffer.c_str(), charBuffer.size() - 1);
+		charBuffer[charBuffer.size() - 1] = '\0';
+
+		ImGui::End();
+	}
+
+	ImGui::Begin("Output");
+
+	// Option 1: Read-only multiline with wrapping (better for logs)
+	ImGui::TextWrapped("%s", BuildSystem::s_BuildOutput.c_str());
+
+	// Option 2: Editable multiline text box (if you want it editable)
+	static std::string buffer;
+	buffer = BuildSystem::s_BuildOutput; // update buffer with latest output
+
+	// Create a char buffer (InputTextMultiline needs char*), static so it persists
+	static std::vector<char> charBuffer(1024 * 16, 0);
+	strncpy(charBuffer.data(), buffer.c_str(), charBuffer.size() - 1);
+	charBuffer[charBuffer.size() - 1] = '\0';
+
+
+	ImGui::End();
+
+
+	ImGui::Begin("File Explorer");
+	ImGui::End();
+
+	ImGui::Begin("Project");
 	ImGui::End();
 }
 
@@ -279,62 +344,79 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 	extern core::Core g_Core;
 	if (ImGui::BeginMainMenuBar())
 	{
+		// FILE MENU
 		if (ImGui::BeginMenu("File"))
 		{
 			if (ImGui::MenuItem("New"))
 			{
-				p_Editor.getTabBar().addTab(std::make_unique<EditorTab>(std::string("Not saved " + std::to_string(p_Editor.getTabBar().getTabCount()))));
+				p_Editor.getTabBar().addTab(std::make_unique<EditorTab>(
+					std::string("Not saved " + std::to_string(p_Editor.getTabBar().getTabCount()))));
 				p_Editor.getTabBar().setCurrentTabIndex(p_Editor.getTabBar().getTabCount() - 1);
 			}
-			if (ImGui::MenuItem("Open..."))
-			{
-#ifdef WIN32
-				auto selectedFile = g_Core.getFileSystem()->openFile("Text Files\0*.txt\0C++ Files\0*.cpp;*.h\0All Files\0*.*\0").value();
-				std::fstream fileData(selectedFile, std::ios::in);
-				std::string buffer;
-				fileData >> buffer;
 
-				if (!selectedFile.empty()) {
-					// Handle file open, e.g. load file contents into your editor
-					p_Editor.openFile(selectedFile.string());
+			if (ImGui::MenuItem("Open"))
+			{
+				auto selectedFile = g_Core.getFileSystem()->openFile("Text Files\0*.txt\0C++ Files\0*.cpp;*.h\0All Files\0*.*\0");
+				if (selectedFile.has_value())
+				{
+
+					std::fstream fileData(selectedFile.value(), std::ios::in);
+					std::string buffer;
+					fileData >> buffer;
+
+					if (!selectedFile.value().empty())
+					{
+						p_Editor.openFile(selectedFile.value().string());
+					}
 
 				}
+				else
+				{
+					LOG("Warning: File open operation failed or was cancelled by user.", core::Log::LogLevel::Warn);
 
-#endif
+				}
 			}
-			if (ImGui::MenuItem("Save")) {
+
+			if (ImGui::MenuItem("Save"))
+			{
 				const auto& tab = p_Editor.getTabBar().getCurrentTab();
 
-				if (!tab) {
+				if (!tab)
+				{
 					std::cerr << "[Warning] Cannot save: No tab is open.\n";
 				}
-				else {
-					if (tab->getFilePath().empty()) {
-						auto filePath = g_Core.getFileSystem()->saveFile().value();
-						if (!filePath.empty()) { // user selected a path
-							tab->setFilePath(filePath);
-							tab->setTabName(std::filesystem::path(filePath).filename().string());
-							FileManager::saveFile(filePath, tab->getDocument().getText());
-						}
+				else
+				{
+					auto path = tab->save();
+					if (path.has_value())
+					{
+						tab->setFilePath(path.value());
+						tab->getDocument().markClean();
 					}
-					else {
-						FileManager::saveFile(tab->getFilePath(), tab->getDocument().getText());
+					else
+					{
+						LOG("Warning: File failed to save.", core::Log::LogLevel::Warn);
 					}
 				}
 			}
 
-			if (ImGui::MenuItem("Save As")) {
+			if (ImGui::MenuItem("Save As"))
+			{
 				const auto& tab = p_Editor.getTabBar().getCurrentTab();
-				auto filePath = g_Core.getFileSystem()->saveFile().value();
-				if (!filePath.empty()) { // always good to check for cancel
+				auto filePath = g_Core.getFileSystem()->saveFile(tab->getDocument().getText()).value();
+
+				if (!filePath.empty())
+				{
 					tab->setFilePath(filePath);
 					tab->setTabName(std::filesystem::path(filePath).filename().string());
-					FileManager::saveFile(tab->getFilePath(), tab->getDocument().getText());
+					g_Core.getFileSystem()->saveFile(tab->getDocument().getText(), tab->getFilePath());
 				}
 			}
-			ImGui::EndMenu();
+
+			ImGui::EndMenu(); // <-- closes File menu properly
 		}
 
+		// EDIT MENU
 		if (ImGui::BeginMenu("Edit"))
 		{
 			if (ImGui::MenuItem("Undo")) {}
@@ -342,56 +424,49 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 			ImGui::EndMenu();
 		}
 
+		// VIEW MENU
 		if (ImGui::BeginMenu("View"))
 		{
 			//	ImGui::MenuItem("Show Console", NULL, &show_console_window);
 			//	ImGui::MenuItem("Show Inspector", NULL, &show_inspector_window);
 			ImGui::EndMenu();
 		}
+
+		// PROJECT MENU
 		if (ImGui::BeginMenu("Project"))
 		{
-
 			if (ImGui::MenuItem("New"))
 			{
-				showPopup = true;  // will trigger popup next frame
+				showPopup = true; // will trigger popup next frame
 			}
-
-
 
 			if (ImGui::MenuItem("Open"))
 			{
-				// Open file dialog to pick a project file (e.g. .qprj or similar)
-				auto filePath = g_Core.getFileSystem()->openFile("Project Files\0*.qprj\0All Files\0*.*\0").value();
-				if (!filePath.empty())
+				auto filePath = g_Core.getFileSystem()->openFile("Project Files\0*.qprj\0All Files\0*.*\0");
+
+				if (filePath.has_value())
 				{
-					if (p_Project.open(filePath))
+					if (p_Project.open(filePath.value()))
 					{
+						p_Editor.getTabBar().closeAll();
 						for (auto& file : p_Project.getSourceFiles())
-						{
 							p_Editor.openFile(file.string());
-
-						}
-
-
-						// Show error popup or message
 					}
 					else
 					{
-
 						ImGui::OpenPopup("Error##ProjectOpen");
 					}
+				}
+				else
+				{
+					LOG("Warning: Project Open operation failed or was cancelled by user.", core::Log::LogLevel::Warn);
+
 				}
 			}
 
 			if (ImGui::MenuItem("Save"))
 			{
-
-				if (!p_Project.save())
-				{
-					// Show error popup or message
-					ImGui::OpenPopup("Error##ProjectOpen");
-				}
-
+				p_Project.save();
 			}
 
 			if (ImGui::MenuItem("Open Folder"))
@@ -407,10 +482,9 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 			ImGui::EndMenu();
 		}
 
-
-
 		ImGui::EndMainMenuBar();
 	}
+
 	if (projectOpen)
 	{
 		ImGui::OpenPopup("Open a project to create a file");
@@ -439,11 +513,11 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 		ImGui::InputText("Project Name", projectName, IM_ARRAYSIZE(projectName));
 
 		if (ImGui::Button("OK", ImVec2(120, 0))) {
-			std::filesystem::path basePath;//= FileDialog::openFileDialog();
+			std::filesystem::path basePath = g_Core.getFileSystem()->openFolder().value();
 			if (!basePath.empty()) {
 				std::filesystem::path projectDir = basePath / projectName;
 				std::filesystem::create_directory(projectDir);
-
+				p_Editor.getTabBar().closeAll();
 				p_Project = Project{}; // Clear current
 				p_Project.createNew(projectDir, projectName);
 				p_Project.save();
@@ -474,4 +548,3 @@ void UIManager::drawMenuBar(MenuBar& menuBar, EditorManager& p_Editor, Project& 
 
 
 }
-

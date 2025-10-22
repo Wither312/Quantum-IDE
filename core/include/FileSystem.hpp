@@ -23,7 +23,7 @@ namespace core {
 
         static std::vector<std::filesystem::path> listFiles(const std::filesystem::path& directory, bool recursive = false);
         static std::optional<std::filesystem::path> openFile(std::filesystem::path = std::filesystem::path());
-        static std::optional<std::filesystem::path> saveFile(std::filesystem::path = std::filesystem::path());
+        static std::optional<std::filesystem::path> saveFile(std::string& buffer, std::filesystem::path path = std::filesystem::path());
         static std::optional<std::filesystem::path> openFolder(std::filesystem::path = std::filesystem::path());
     };
 

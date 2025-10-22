@@ -10,6 +10,8 @@
 #include <fstream>
 #include <sstream>
 #include "FileManager.hpp"
+#include <random>
+#include <sstream>
 
 // Forward declarations
 class Document;
@@ -29,8 +31,11 @@ public:
 	void undo();
 	void redo();
 
+	bool isDirty() const { return m_Dirty; }
+	void markClean() { m_Dirty = false; }
 private:
 	std::string m_TextBuffer;
+	bool m_Dirty = false;
 
 	std::vector<std::string> m_UndoStack;
 	std::vector<std::string> m_RedoStack;
@@ -52,13 +57,13 @@ private:
 // Represents a single tab in the editor, managing a document and highlighter
 class EditorTab {
 public:
-	EditorTab(std::string);
+	EditorTab(std::string );
 	EditorTab(std::unique_ptr<Document> doc);
 	~EditorTab();
 
 	void setTabName(std::string name) { m_TabName = name; }
 	void setFilePath(std::filesystem::path path) { m_Path = path; }
-
+	std::optional<std::filesystem::path>  save();
 	std::filesystem::path getFilePath()
 	{
 		if (this == nullptr) {
@@ -69,17 +74,20 @@ public:
 		}
 		if (m_Path.empty() && !m_TabName.empty())
 		{
-			std::cerr << "EditorTab file path is empty!\n";
+			//TODO only call on tab not always
 			return std::filesystem::path();
 		}
 		return m_Path;
 	}
 
+	void setID(std::string& id) { m_UniqueID = id; }
+	std::string getID() { return m_UniqueID; }
 	Document& getDocument();
 	std::string& getTabName() { return m_TabName; }
 	SyntaxHighlighter& getSyntaxHighlighter();
 
 private:
+	std::string m_UniqueID;
 	std::string m_TabName;
 	std::filesystem::path m_Path = "";
 	SyntaxHighlighter m_SyntaxHighlighter;
@@ -95,6 +103,7 @@ public:
 
 	void addTab(std::unique_ptr<EditorTab> tab);
 	void closeTab(int index);
+	void closeAll();
 	void saveAll();
 	EditorTab* getTab(int index);
 

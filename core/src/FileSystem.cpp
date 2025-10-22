@@ -79,10 +79,33 @@ std::optional<std::filesystem::path> FileSystem::openFile(std::filesystem::path 
 	return Platform::openFileDialog();
 }
 
-std::optional<std::filesystem::path> FileSystem::saveFile(std::filesystem::path path)
+std::optional<std::filesystem::path> FileSystem::saveFile(std::string& buffer, std::filesystem::path path)
 {
-	return Platform::saveFileDialog();
+	if (!path.empty())
+	{
+		std::ofstream out(path);
+		if (!out.is_open())
+			return std::nullopt;
+
+		out << buffer;
+		return path;
+	}
+	else
+	{
+		auto maybePath = Platform::saveFileDialog();
+		if (!maybePath)
+			return std::nullopt;
+
+		std::ofstream out(*maybePath);
+		if (!out.is_open())
+			return std::nullopt;
+
+		out << buffer;
+		return maybePath;
+	}
 }
+
+
 
 std::optional<std::filesystem::path> FileSystem::openFolder(std::filesystem::path path)
 {

@@ -28,7 +28,12 @@ void Log::LoG(const char* formattedMsg, LogLevel severity)
 #endif
 
     const char* levelStr = (severity == Error ? "ERROR" : severity == Warn ? "WARN" : "INFO");
-    std::cout << "[" << levelStr << "][" << std::ctime(&time) << "]: " << formattedMsg << std::endl;
+    std::string timeStr = std::ctime(&time);
+    if (!timeStr.empty() && timeStr.back() == '\n') {
+        timeStr = timeStr.substr(0, timeStr.size() - 1);  // Remove last char (newline)
+    }
+
+    std::cout << "[" << levelStr << "][" << timeStr << "]: " << formattedMsg << std::endl;
 
 #ifdef _WIN32
     SetConsoleTextAttribute(hcon, 7);

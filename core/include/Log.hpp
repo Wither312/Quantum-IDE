@@ -14,7 +14,7 @@
 #endif
 
 #ifdef _DEBUG
-#define LOG(fmt, level, ...) Log::lOG(fmt, level, __VA_ARGS__)
+#define LOG(fmt, level, ...) core::Log::lOG(fmt, level, __VA_ARGS__)
 #define TIMER(x) ScopedTimer timer(x)
 #else
 #define LOG(fmt, level, ...)

@@ -1,5 +1,7 @@
 #include "BuildSystem.hpp"
 
+std::string BuildSystem::s_BuildOutput;
+std::string BuildSystem::s_ConsoleOutput;
 
 BuildSystem::BuildSystem()
 {
@@ -7,51 +9,41 @@ BuildSystem::BuildSystem()
 	m_BuildFlags.push_back(CompilerFlag::Cpp20);
 }
 
-void BuildSystem::BuildCurrentProject(EditorManager& p_Editor, const Project& p_Project)
+void BuildSystem::BuildCurrentProject(EditorManager& p_Editor, Project& p_Project)
 {
 	if (m_IsBuilding.exchange(true)) {
+		// Already building, ignore subsequent calls
 		return;
 	}
 
-	// Copy editor buffer so thread doesn't capture ref to it
-	std::string editorContent(m_EditorBuffer);
-
+	// Save project if dirty
 	if (p_Project.isDirty())
 	{
-		std::cerr << "[Warning]:Project not saved, saving" << std::endl;
+		LOG("[Warning]: Project not saved, saving...", core::Log::LogLevel::Warn);
 		p_Editor.getTabBar().saveAll();
 		p_Project.save();
-
 	}
 
-	std::thread([&]() {
-
-		//{
-		//	std::ofstream ofs(src);  // corrected mode
-		//	std::lock_guard<std::mutex> lk(m_BuildMutex);
-		//	ofs << editorContent;
-		//} // mutex unlocked here   // ova go pravie file da bide prazen? zs voopsto citas?
-
-
-
-		std::string otherOptions = "";
-		std::string buildTask = "cd \"" + p_Project.getRootDirectory().string() + "\"" +
-			" && " + parseCompiler(m_Compiler) + " " +
-			BuildFlags(m_BuildFlags) + " " +
-			BuildFiles(p_Project.getSourceFiles()) + " " +
-			otherOptions + " -o \"" + p_Project.getRootDirectory().string() + "\\" + p_Project.getName() + ".exe\"";
-
-
+	std::thread([this, &p_Project]() {
 		std::string output;
+
+		std::string buildCommand =
+			"cd \"" + p_Project.getRootDirectory().string() + "\""
+			+ " && " + parseCompiler(m_Compiler) + " "
+			+ BuildFlags(m_BuildFlags) + " "
+			+ BuildFiles(p_Project.getSourceFiles()) + " "
+			+ " -o \"" + p_Project.getRootDirectory().string() + "\\" + p_Project.getName() + ".exe\""
+			+ " 2>&1"; // Redirect stderr to stdout
+
 #ifdef _WIN32
-		FILE* pipe = _popen(buildTask.c_str(), "r");
+		FILE* pipe = _popen(buildCommand.c_str(), "r");
 #else
-		FILE* pipe = popen(buildTask.c_str(), "r");
+		FILE* pipe = popen(buildCommand.c_str(), "r");
 #endif
 		if (pipe) {
-			char buf[512];
-			while (fgets(buf, sizeof(buf), pipe)) {
-				output += buf;
+			char buffer[512];
+			while (fgets(buffer, sizeof(buffer), pipe)) {
+				output += buffer;
 			}
 #ifdef _WIN32
 			_pclose(pipe);
@@ -64,29 +56,38 @@ void BuildSystem::BuildCurrentProject(EditorManager& p_Editor, const Project& p_
 		}
 
 		{
-			std::lock_guard<std::mutex> lk(m_BuildMutex);
-			BuildSystem::m_BuildOutput = output;
-			std::fstream stdOut("output.txt", std::ios::out);
-			stdOut << output;
-			stdOut.close();
+			std::lock_guard<std::mutex> lock(m_BuildMutex);
+			s_BuildOutput = output;
+			if (output.empty())
+			{
+				s_BuildOutput = "Build is successfull";
+			}
+
+
 		}
 
 		m_IsBuilding.store(false);
 		}).detach();
 }
+
 void BuildSystem::RunCurrentProject(const Project& p_Project)
 {
+	if (p_Project.getName().empty())
+	{
+		LOG("No project is open", core::Log::LogLevel::Warn);
+		return;
+	}
 	std::string command = "\"" + p_Project.getRootDirectory().string() + "\\" + p_Project.getName() + "\"";  // Quote it in case of spaces
 
 	std::string result;
 	char buffer[128];
 
 	// "r" = read the output of the command
-	#ifdef __linux__
+#ifdef __linux__
 	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
-	#elif _WIN32
+#elif _WIN32
 	std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(command.c_str(), "r"), _pclose);
-	#endif
+#endif
 	if (!pipe.get())
 		throw std::runtime_error("Failed to run command");
 
@@ -94,8 +95,9 @@ void BuildSystem::RunCurrentProject(const Project& p_Project)
 	{
 		result += buffer;
 	}
+	s_ConsoleOutput = result;
 
-	std::cout << result << std::endl;
+	LOG("Console pipe output: %s", core::Log::LogLevel::Tracer, result.c_str());
 }
 std::string BuildSystem::BuildFlags(const std::vector<CompilerFlag>& flags)
 {

@@ -135,6 +135,12 @@ void Application::Update()
 
 		ShowMainDockSpace();
 
+		bool ctrlPressed = m_IO->KeyCtrl;  // or io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
+		if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_S)) {
+			// Save action here
+			m_Editor.getTabBar().getCurrentTab()->save();
+		}
+
 		//TOOD find better way to index 
 		m_UIManager.draw(m_Editor, m_Project);
 

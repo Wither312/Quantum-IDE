@@ -70,10 +70,11 @@ bool Project::open(const fs::path& path) {
     return true;
 }
 
-bool Project::save() const { 
-    std::ofstream file(std::string(this->projectFilePath.string() + ".qproj"));
+bool Project::save()  { 
+    std::ofstream file(std::string(this->projectFilePath.string()));
     if (!file.is_open()) return false;
 
+    dirty = false;
     json j;
     j["name"] = name;
     j["projectFilePath"] = projectFilePath.string();
@@ -102,6 +103,7 @@ bool Project::save() const {
 
     file << j.dump(4); // pretty print with indent of 4 spaces
 
+   
     return true;
 }
 
