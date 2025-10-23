@@ -1,10 +1,8 @@
 #include "Platform.hpp"
+
+#include <iostream>
+
 using namespace core;
-
-
-
-
-
 
 #ifdef _WIN32
 std::optional<std::filesystem::path> openFileDialogWin32(const char* filter = nullptr) {
@@ -185,3 +183,51 @@ std::optional<std::filesystem::path> Platform::folderDialog() {
 	return std::nullopt;
 #endif
 }
+
+void Platform::enableConsoleColors() {
+#ifdef WIN32
+	HANDLE hcon = GetStdHandle(STD_OUTPUT_HANDLE);
+	if (hcon == INVALID_HANDLE_VALUE) return;
+
+	DWORD dwMode = 0;
+	if (!GetConsoleMode(hcon, &dwMode)) return;
+
+	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	SetConsoleMode(hcon, dwMode);
+#endif
+}
+
+std::string Platform::getAnsiCode(const Color color) {
+	switch (color) {
+		case Color::Red:     return "\033[31m";
+		case Color::Green:   return "\033[32m";
+		case Color::Yellow:  return "\033[33m";
+		case Color::Blue:    return "\033[34m";
+		case Color::Magenta: return "\033[35m";
+		case Color::Cyan:    return "\033[36m";
+		case Color::White:   return "\033[37m";
+		default:             return "\033[0m"; // reset
+	}
+}
+
+void Platform::printConsoleColor(const std::string& text, const Color color, const bool newLine) {
+	std::cout << getAnsiCode(color) << "[" << text << "]: " << getAnsiCode(Color::Default);
+	if (newLine) std::cout << std::endl;
+}
+
+void Platform::printConsoleColor(const std::string& tag, const std::string& text, const Color tagColor, const Color messageColor, const bool newLine) {
+	std::cout
+		<< getAnsiCode(tagColor) << "[" << tag << "]: "
+		<< getAnsiCode(messageColor) << text
+		<< getAnsiCode(Color::Default);
+	if (newLine) std::cout << std::endl;
+}
+
+void Platform::setConsoleColor(const Color color) {
+	std::cout << getAnsiCode(color);
+}
+
+void Platform::resetConsoleColor() {
+	std::cout << getAnsiCode(Color::Default);
+}
+

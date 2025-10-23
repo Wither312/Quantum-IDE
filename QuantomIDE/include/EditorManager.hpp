@@ -12,6 +12,7 @@
 #include "FileManager.hpp"
 #include <random>
 #include <sstream>
+#include <optional>
 
 // Forward declarations
 class Document;
@@ -63,7 +64,7 @@ public:
 
 	void setTabName(std::string name) { m_TabName = name; }
 	void setFilePath(std::filesystem::path path) { m_Path = path; }
-	std::optional<std::filesystem::path>  save();
+	std::optional<std::filesystem::path> save();
 	std::filesystem::path getFilePath()
 	{
 		if (this == nullptr) {
