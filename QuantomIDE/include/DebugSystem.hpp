@@ -2,92 +2,93 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <Log.hpp>
+#include <filesystem>
 
-namespace Debugger
+
+
+// --------------------
+// Basic enums
+// --------------------
+enum class BreakpointType
 {
+	LINE,
+	FUNCTION,
+	CONDITIONAL,
+	WATCH
+};
 
-    // --------------------
-    // Basic enums
-    // --------------------
-    enum class BreakpointType
-    {
-        LINE,
-        FUNCTION,
-        CONDITIONAL,
-        WATCH
-    };
+enum class BreakpointStatus
+{
+	ENABLED,
+	DISABLED,
+	HIT
+};
 
-    enum class BreakpointStatus
-    {
-        ENABLED,
-        DISABLED,
-        HIT
-    };
+struct Variable
+{
+	std::string name;
+	std::string type;
+	std::string value;
+};
 
-    struct Variable
-    {
-        std::string name;
-        std::string type;
-        std::string value;
-    };
+struct Breakpoint
+{
+	std::string file;
+	int line;
+	BreakpointType type;
+	BreakpointStatus status;
+	std::string condition; // optional for conditional breakpoints
+	std::vector<Variable> locals; // captured locals when breakpoint hits
+};
 
-    struct Breakpoint
-    {
-        std::string file;
-        int line;
-        BreakpointType type;
-        BreakpointStatus status;
-        std::string condition; // optional for conditional breakpoints
-        std::vector<Variable> locals; // captured locals when breakpoint hits
-    };
+// --------------------
+// Core DebugSystem
+// --------------------
+class DebugSystem
+{
+public:
+	DebugSystem();
+	~DebugSystem();
 
-    // --------------------
-    // Core DebugSystem
-    // --------------------
-    class DebugSystem
-    {
-    public:
-        DebugSystem();
-        ~DebugSystem();
+	// ----------------
+	// Program control
+	// ----------------
+	void loadExecutable(const std::filesystem::path&);
+	void run();
+	void step();          // step over
+	void next();          // step to next line
+	void continueExecution();
+	void stop();
 
-        // ----------------
-        // Program control
-        // ----------------
-        void loadExecutable(const std::string& path);
-        void run();
-        void step();          // step over
-        void next();          // step to next line
-        void continueExecution();
-        void stop();
+	// ----------------
+	// Breakpoints
+	// ----------------
+	void addBreakpoint(const std::string& file, int line);
+	void removeBreakpoint(const std::string& file, int line);
+	void enableBreakpoint(const std::string& file, int line);
+	void disableBreakpoint(const std::string& file, int line);
 
-        // ----------------
-        // Breakpoints
-        // ----------------
-        void addBreakpoint(const std::string& file, int line);
-        void removeBreakpoint(const std::string& file, int line);
-        void enableBreakpoint(const std::string& file, int line);
-        void disableBreakpoint(const std::string& file, int line);
+	// ----------------
+	// Variables
+	// ----------------
+	std::vector<Variable> getLocalVariables(); // at current breakpoint
 
-        // ----------------
-        // Variables
-        // ----------------
-        std::vector<Variable> getLocalVariables(); // at current breakpoint
+	// ----------------
+	// Helpers / state
+	// ----------------
+	bool isRunning() const { return m_running; }
+	bool isPaused() const {return m_paused;}
 
-        // ----------------
-        // Helpers / state
-        // ----------------
-        bool isRunning() const;
-        bool isPaused() const;
+private:
+	std::filesystem::path m_executablePath;
+	std::vector<Breakpoint> m_breakpoints;
+	std::string m_DebugTask;
 
-    private:
-        std::string m_executablePath;
-        std::vector<Breakpoint> m_breakpoints;
+	bool m_running;
+	bool m_paused;
 
-        bool m_running;
-        bool m_paused;
+	// internal helper
+	Breakpoint* findBreakpoint(const std::string& file, int line);
+};
 
-        // internal helper
-        Breakpoint* findBreakpoint(const std::string& file, int line);
-    };
-
-} // namespace Debugger

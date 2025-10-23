@@ -15,6 +15,7 @@
 #include "EditorManager.hpp"
 #include "UIManager.hpp"
 #include "BuildSystem.hpp"
+#include "DebugSystem.hpp"
 
 
 // Forward declarations to avoid unnecessary includes
@@ -78,6 +79,7 @@ private:
     TreeView m_TreeView;
     MenuBar m_MenuBar;
     Project m_Project;
+    DebugSystem m_DebugSystem;
    
 
 };

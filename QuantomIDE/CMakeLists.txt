@@ -33,7 +33,7 @@ if(UNIX AND NOT APPLE)
     find_package(X11 REQUIRED)
 endif()
 # ImGui library
-add_library(imgui STATIC ${IMGUI_SOURCES} "include/DebugSystem.hpp" "src/DebugSystem.cpp")
+add_library(imgui STATIC ${IMGUI_SOURCES})
 
 target_include_directories(imgui PUBLIC
     ${CMAKE_SOURCE_DIR}/vendor/imgui
@@ -47,7 +47,7 @@ find_package(OpenGL REQUIRED)
 # Collect your application sources
 file(GLOB_RECURSE APP_SOURCES "${PROJECT_SOURCE_DIR}/src/*.cpp")
 
-add_executable(QuantomIDE ${APP_SOURCES} "include/DebugSystem.hpp" "src/DebugSystem.cpp")
+add_executable(QuantomIDE ${APP_SOURCES})
 
 target_include_directories(QuantomIDE PRIVATE
     ${PROJECT_SOURCE_DIR}/include

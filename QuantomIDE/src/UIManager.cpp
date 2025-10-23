@@ -1,5 +1,8 @@
-﻿#include "UIManager.hpp"
+﻿#include "imgui.h"
+#include <imgui_internal.h>
+
 #include <Core.hpp>
+#include "UIManager.hpp"
 #include "BuildSystem.hpp"
 // For strncpy
 static bool showPopup = false;
@@ -12,10 +15,6 @@ static std::string boilerPlate =
 "    std::cout << \"hello world\\n\";\n"
 "    return 0;\n"
 "}\n";
-
-#include "imgui.h"
-#include <imgui_internal.h>
-
 
 
 

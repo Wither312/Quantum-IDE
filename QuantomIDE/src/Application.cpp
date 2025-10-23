@@ -124,10 +124,15 @@ void Application::ShowMainDockSpace()
 	if (ImGui::Button("Debug"))
 	{
 		if (!m_debugSessionActive) m_debugSessionActive = true;
-		
-		
+		m_DebugSystem = DebugSystem();
+		m_DebugSystem.loadExecutable(m_Project.getRootDirectory().string() + " \\" + m_Project.getName());
+		m_DebugSystem.addBreakpoint("filename", 12);
+		m_DebugSystem.getLocalVariables();
+		m_DebugSystem.run();
+
+
 	}
-	if(m_debugSessionActive)
+	if (m_debugSessionActive)
 	{
 		ImGui::SameLine();
 		ImGui::Text("|");
@@ -135,35 +140,36 @@ void Application::ShowMainDockSpace()
 		if (ImGui::Button("Stop Debug"))
 		{
 			if (m_debugSessionActive) m_debugSessionActive = false;
-			
+			m_DebugSystem.stop();
+
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Pause"))
 		{
 			// Handle build action
-			
-			
+			//TODO ADD PAUSE m_DebugSystem.isPaused();
+
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Step Over"))
 		{
 			// Handle build action
-			
-			
+			m_DebugSystem.step();
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Step Into"))
 		{
 			// Handle build action
-			
-			
+			m_DebugSystem.next();
+
+
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Step Out"))
 		{
 			// Handle build action
-			
-			
+
+
 		}
 
 
@@ -196,7 +202,7 @@ void Application::Update()
 		this->BeginFrame();
 
 		ShowMainDockSpace();
-	
+
 		bool ctrlPressed = m_IO->KeyCtrl;  // or io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
 		if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_S)) {
 			// Save action here
