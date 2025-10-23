@@ -2,15 +2,15 @@
 #include "Platform.hpp"
 
 ScopedTimer::ScopedTimer(const char* data) : m_Data(data), duration(0) {
-    start = std::chrono::high_resolution_clock::now();
+    start = std::chrono::steady_clock::now();
 }
 
 ScopedTimer::~ScopedTimer()
 {
-    end = std::chrono::high_resolution_clock::now();
+    end = std::chrono::steady_clock::now();
     duration = end - start;
 
-    const float ms = duration.count() * 1000.0f;
+    const long long ms = duration_cast<std::chrono::milliseconds>(end - start).count();
 
     core::Platform::enableConsoleColors();
     core::Platform::printConsoleColor("INFO", m_Data, core::Color::Cyan, core::Color::Default, false);
