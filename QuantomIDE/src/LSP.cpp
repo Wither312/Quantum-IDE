@@ -134,7 +134,7 @@ bool LSPClient::writeRaw(const std::string& s) {
 
 #ifndef WIN32
 
-bool ClangdLSP::spawnClangLinux() {
+bool LSPClient::spawnClangdLinux() {
     int inpipe[2];  // parent -> child
     int outpipe[2]; // child -> parent
 
@@ -183,7 +183,7 @@ bool ClangdLSP::spawnClangLinux() {
     return true;
 }
 
-bool ClangdLSP::writeRawLinux(const std::string& s) {
+bool LSPClient::writeRawLinux(const std::string& s) {
     std::lock_guard<std::mutex> lock(writeMutex);
     if (toChild_fd == -1) return false;
     ssize_t total = 0;
