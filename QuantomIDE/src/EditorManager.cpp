@@ -1,9 +1,10 @@
 // EditorManager.cpp
 #include "EditorManager.hpp"
-#include <Core.hpp>
+#include "Core.hpp"
+#include "LSP.hpp"
+
 extern core::Core g_Core;
-
-
+extern LSPClient g_LSPClient;
 
 static std::string GenerateRandomID()
 {
@@ -12,7 +13,8 @@ static std::string GenerateRandomID()
 
 	std::stringstream ss;
 	ss << std::hex;
-	for (int i = 0; i < 8; ++i) {
+	for (int i = 0; i < 8; ++i)
+	{
 		ss << dist(rng);
 	}
 	return ss.str(); // e.g., "a3f9b12e"
@@ -20,15 +22,24 @@ static std::string GenerateRandomID()
 
 // -------- Document --------
 
-void Document::setText(const std::string& text)
+void Document::setText(const std::string &text)
 {
 	m_TextBuffer = text;
 	m_UndoStack.clear();
 	m_RedoStack.clear();
+	m_LineOffsets.clear();
+	m_LineOffsets.push_back(0);
+	for (int i = 0; i < text.size(); i++)
+	{
+		if (text[i] == '\n')
+		{
+			m_LineOffsets.push_back(i + 1);
+		}
+	}
 	m_Dirty = true;
 }
 
-std::string& Document::getText()
+std::string &Document::getText()
 {
 	return m_TextBuffer;
 }
@@ -57,7 +68,7 @@ void Document::redo()
 SyntaxHighlighter::SyntaxHighlighter() = default;
 SyntaxHighlighter::~SyntaxHighlighter() = default;
 
-void SyntaxHighlighter::highlight(const Document& /*doc*/)
+void SyntaxHighlighter::highlight(const Document & /*doc*/)
 {
 	// TODO: Implement syntax highlighting logic
 }
@@ -75,12 +86,12 @@ EditorTab::EditorTab(std::unique_ptr<Document> doc)
 
 EditorTab::~EditorTab() = default;
 
-Document& EditorTab::getDocument()
+Document &EditorTab::getDocument()
 {
 	return *m_Document;
 }
 
-SyntaxHighlighter& EditorTab::getSyntaxHighlighter()
+SyntaxHighlighter &EditorTab::getSyntaxHighlighter()
 {
 	return m_SyntaxHighlighter;
 }
@@ -93,17 +104,18 @@ void TabBar::addTab(std::unique_ptr<EditorTab> tab)
 {
 	std::string id;
 
-	do {
+	do
+	{
 		id = GenerateRandomID();
 	} while (std::any_of(m_Tabs.begin(), m_Tabs.end(),
-		[&](const std::unique_ptr<EditorTab>& existingTab) {
-			return existingTab->getID() == id;
-		}));
+						 [&](const std::unique_ptr<EditorTab> &existingTab)
+						 {
+							 return existingTab->getID() == id;
+						 }));
 
 	tab->setID(id);
 	m_Tabs.push_back(std::move(tab));
 }
-
 
 void TabBar::closeTab(int index)
 {
@@ -114,7 +126,7 @@ void TabBar::closeTab(int index)
 	}
 }
 
-EditorTab* TabBar::getTab(int index)
+EditorTab *TabBar::getTab(int index)
 {
 	if (index >= 0 && index < static_cast<int>(m_Tabs.size()))
 		return m_Tabs[index].get();
@@ -126,29 +138,31 @@ int TabBar::getTabCount() const
 	return static_cast<int>(m_Tabs.size());
 }
 
-int TabBar::getCurrentTabIndex() const {
+int TabBar::getCurrentTabIndex() const
+{
 	return m_CurrentTabIndex;
 }
 
-EditorTab* TabBar::getCurrentTab() {
+EditorTab *TabBar::getCurrentTab()
+{
 	if (m_CurrentTabIndex >= 0 && m_CurrentTabIndex < static_cast<int>(m_Tabs.size()))
 		return m_Tabs[m_CurrentTabIndex].get();
 	return nullptr;
 }
 
-void TabBar::setCurrentTabIndex(int index) {
+void TabBar::setCurrentTabIndex(int index)
+{
 	if (index >= 0 && index < static_cast<int>(m_Tabs.size()))
 		m_CurrentTabIndex = index;
 	else
 		m_CurrentTabIndex = -1;
 }
 
-
 // -------- EditorManager --------
 EditorManager::EditorManager() = default;
 EditorManager::~EditorManager() = default;
 
-void EditorManager::openFile(const std::string& filepath)
+void EditorManager::openFile(const std::string &filepath)
 {
 	std::ifstream file(filepath);
 	if (!file)
@@ -169,6 +183,16 @@ void EditorManager::openFile(const std::string& filepath)
 	m_TabBar.addTab(std::move(tab));
 
 	m_TabBar.setCurrentTabIndex(m_TabBar.getTabCount() - 1);
+
+	std::string uri = "file://" + std::filesystem::absolute(filepath).string();
+	// check if file is .cpp or .h for languageId
+	std::string languageId = "plaintext";
+	if (filepath.ends_with(".cpp") || filepath.ends_with(".cxx") || filepath.ends_with(".h") || filepath.ends_with(".c") || filepath.ends_with(".hpp"))
+	{
+		languageId = "cpp";
+	}
+	std::string text = buffer.str();
+	g_LSPClient.textDocumentDidOpen(uri, languageId, text);
 }
 
 void EditorManager::closeFile(int tabIndex)
@@ -176,18 +200,20 @@ void EditorManager::closeFile(int tabIndex)
 	m_TabBar.closeTab(tabIndex);
 }
 
-TabBar& EditorManager::getTabBar()
+TabBar &EditorManager::getTabBar()
 {
 	return m_TabBar;
 }
 void TabBar::saveAll()
 {
-	for (auto& tab : m_Tabs)
+	for (auto &tab : m_Tabs)
 	{
-		if (!tab) {
+		if (!tab)
+		{
 			LOG("Tab does not exist", core::Log::LogLevel::Warn);
 		}
-		else {
+		else
+		{
 			auto path = tab->save();
 			if (!path.has_value())
 			{
@@ -210,6 +236,9 @@ std::optional<std::filesystem::path> EditorTab::save()
 		setTabName(path.value().filename().string());
 		setFilePath(path.value());
 		m_Document.get()->markClean();
+
+		std::string uri = "file://" + std::filesystem::absolute(path.value()).string();
+		g_LSPClient.textDocumentDidChange(uri, buffer);
 		return std::optional<std::filesystem::path>(m_Path);
 	}
 	LOG("Warning: File save operation failed or was cancelled by user.", core::Log::LogLevel::Warn);

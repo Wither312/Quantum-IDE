@@ -9,10 +9,13 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include "FileManager.hpp"
 #include <random>
 #include <sstream>
 #include <optional>
+
+#include "FileManager.hpp"
+#include "LSP.hpp"
+#include "imgui_internal.h"
 
 // Forward declarations
 class Document;
@@ -40,6 +43,8 @@ private:
 
 	std::vector<std::string> m_UndoStack;
 	std::vector<std::string> m_RedoStack;
+
+	std::vector<size_t> m_LineOffsets;
 };
 
 // Handles syntax highlighting of text

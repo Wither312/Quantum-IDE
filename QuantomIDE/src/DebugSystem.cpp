@@ -9,7 +9,7 @@ DebugSystem::~DebugSystem()
 {
 	LOG("Debugging has be stopped", core::Log::LogLevel::Tracer);
 }
-inline void DebugSystem::loadExecutable(const std::filesystem::path& filePath)
+void DebugSystem::loadExecutable(const std::filesystem::path& filePath)
 {
 	if (filePath.empty())
 	{
@@ -61,6 +61,9 @@ void DebugSystem::run()
 }
 
 void DebugSystem::step()
+{
+}
+void DebugSystem::next()
 {
 }
 inline void DebugSystem::continueExecution()

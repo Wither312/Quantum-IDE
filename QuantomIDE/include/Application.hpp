@@ -16,6 +16,7 @@
 #include "UIManager.hpp"
 #include "BuildSystem.hpp"
 #include "DebugSystem.hpp"
+#include "LSP.hpp"
 
 
 // Forward declarations to avoid unnecessary includes
@@ -27,7 +28,7 @@ class Application
 {
 public:
     // Constructor / Destructor
-    Application(const std::string& title = "Quantom IDE", int width = 1280, int height = 720);
+    Application(const std::string& title = "Quantum IDE", int width = 1280, int height = 720);
     ~Application();
 
     // Prevent copy
@@ -80,6 +81,4 @@ private:
     MenuBar m_MenuBar;
     Project m_Project;
     DebugSystem m_DebugSystem;
-   
-
 };

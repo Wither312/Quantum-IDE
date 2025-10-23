@@ -1,9 +1,10 @@
 ﻿#include "Application.hpp"
-#include <Core.hpp>
+#include "Core.hpp"
 #include <imgui_internal.h>
 #define IMGUI_ENABLE_DOCKING
 
 core::Core g_Core;
+LSPClient g_LSPClient;
 
 inline static void glfw_error_callback(int error, const char* description)
 {
@@ -28,6 +29,9 @@ Application::Application(const std::string& title, int width, int height)
 		std::cerr << "Core not init!\n";
 	}
 
+	if (!g_LSPClient.start()) {
+		std::cerr << "LSP Client failed to start!\n";
+	}
 }
 Application::~Application()
 {
@@ -208,6 +212,20 @@ void Application::Update()
 			// Save action here
 			m_Editor.getTabBar().getCurrentTab()->save();
 		}
+
+		// if (ImGui::IsWindowFocused() && ImGui::IsKeyDown(ImGuiKey_Space) && ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) {
+		// 	// Trigger autocomplete
+		// 	int cursorLine = m_Editor.getTabBar().getCurrentTab()->getCursorLine();
+		// 	int cursorColumn = m_Editor.getTabBar().getCurrentTab()->getCursorColumn();
+		// 	g_LSPClient.textDocumentCompletion("file://"+ m_Editor.getTabBar().getCurrentTab()->getFilePath().string(), cursorLine + 1, cursorColumn + 1);
+		// 	g_LSPClient.setOnCompletion([](int id, const std::vector<CompletionItem>& items) {
+		// 		// Handle completion items (e.g., show in UI)
+		// 		std::cout << "Completion ID: " << id << "\n";
+		// 		for (const auto& item : items) {
+		// 			std::cout << " - " << item.label << "\n";
+		// 		}
+		// 	});
+		// }
 
 		//TOOD find better way to index 
 		m_UIManager.draw(m_Editor, m_Project);
