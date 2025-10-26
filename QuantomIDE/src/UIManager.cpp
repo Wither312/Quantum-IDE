@@ -158,14 +158,19 @@ void UIManager::drawEditor(EditorManager &editor, Project &p_Project) {
         ImGuiID dock_right = 0;
         ImGui::DockBuilderSplitNode(rootDockspaceID, ImGuiDir_Left, 0.16f, &dock_left, &dock_right);
 
+        ImGuiID dock_main = 0;
+        ImGuiID dock_status = 0;
+        ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.07f, &dock_status, &dock_main);
+
         // 2. Dock File Explorer and Project into LEFT dock (tabbed together)
         ImGui::DockBuilderDockWindow("File Explorer", dock_left);
         ImGui::DockBuilderDockWindow("Project", dock_left);
 
         // 3. Dock Editor, Console, Output all into RIGHT dock (tabbed together)
-        ImGui::DockBuilderDockWindow("Editor", dock_right);
-        ImGui::DockBuilderDockWindow("Console", dock_right);
-        ImGui::DockBuilderDockWindow("Output", dock_right);
+        ImGui::DockBuilderDockWindow("Editor", dock_main);
+        ImGui::DockBuilderDockWindow("Console", dock_main);
+        ImGui::DockBuilderDockWindow("Output", dock_main);
+        ImGui::DockBuilderDockWindow("Status", dock_status);
 
         ImGui::DockBuilderFinish(rootDockspaceID);
     }
@@ -487,11 +492,13 @@ void UIManager::drawMenuBar(MenuBar &menuBar, EditorManager &p_Editor, Project &
 }
 
 void UIManager::drawStatusBar(StatusBar& statusBar, EditorManager& editor, Project& m_Project) {
-    /*ImGui::Begin("Status");
+    ImGui::Begin("Status");
     auto* tab = editor.getTabBar().getCurrentTab();
     if (tab) {
         auto [line, col] = tab->getDocument().getCursorPos();
-        ImGui::Text("Ln %d, Col %d | %s", line, col, tab->getTabName().c_str());
+        ImGui::Text("Ln %d, Col %d | %s", static_cast<int>(line) + 1, static_cast<int>(col) + 1, tab->getTabName().c_str());
+    } else {
+        ImGui::Text("No file open.");
     }
-    ImGui::End();*/
+    ImGui::End();
 }
