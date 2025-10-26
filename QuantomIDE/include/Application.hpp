@@ -16,7 +16,6 @@
 #include "UIManager.hpp"
 #include "BuildSystem.hpp"
 #include "DebugSystem.hpp"
-#include "LSP.hpp"
 
 
 // Forward declarations to avoid unnecessary includes

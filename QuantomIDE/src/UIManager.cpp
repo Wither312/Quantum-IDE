@@ -487,11 +487,11 @@ void UIManager::drawMenuBar(MenuBar &menuBar, EditorManager &p_Editor, Project &
 }
 
 void UIManager::drawStatusBar(StatusBar& statusBar, EditorManager& editor, Project& m_Project) {
-    ImGui::Begin("Status");
+    /*ImGui::Begin("Status");
     auto* tab = editor.getTabBar().getCurrentTab();
     if (tab) {
         auto [line, col] = tab->getDocument().getCursorPos();
         ImGui::Text("Ln %d, Col %d | %s", line, col, tab->getTabName().c_str());
     }
-    ImGui::End();
+    ImGui::End();*/
 }
