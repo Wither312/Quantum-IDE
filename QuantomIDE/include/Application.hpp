@@ -77,9 +77,8 @@ private:
     UIManager m_UIManager;
     BuildSystem m_BuildSytem;
     TreeView m_TreeView;
+    StatusBar m_StatusBar;
     MenuBar m_MenuBar;
     Project m_Project;
     DebugSystem m_DebugSystem;
-   
-
 };

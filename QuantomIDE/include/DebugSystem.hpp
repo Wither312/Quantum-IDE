@@ -54,7 +54,7 @@ public:
 	// ----------------
 	// Program control
 	// ----------------
-	void loadExecutable(const std::filesystem::path&);
+	void loadExecutable(const std::filesystem::path& filePath);
 	void run();
 	void step();          // step over
 	void next();          // step to next line

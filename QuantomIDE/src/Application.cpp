@@ -1,9 +1,10 @@
 ﻿#include "Application.hpp"
-#include <Core.hpp>
+#include "Core.hpp"
 #include <imgui_internal.h>
 #define IMGUI_ENABLE_DOCKING
 
 core::Core g_Core;
+LSPClient g_LSPClient("clangd", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
 
 inline static void glfw_error_callback(int error, const char* description)
 {
@@ -28,6 +29,9 @@ Application::Application(const std::string& title, int width, int height)
 		std::cerr << "Core not init!\n";
 	}
 
+	if (!g_LSPClient.start()) {
+		std::cerr << "LSP Client failed to start!\n";
+	}
 }
 Application::~Application()
 {
@@ -207,6 +211,20 @@ void Application::Update()
 		if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_S)) {
 			// Save action here
 			m_Editor.getTabBar().getCurrentTab()->save();
+			std::cout << m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos().first << " " << m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos().second << std::endl;
+		}
+
+		if (ImGui::IsWindowFocused() && ImGui::IsKeyDown(ImGuiKey_Space) && ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) {
+			// Trigger autocomplete
+			std::pair<int, int> cursorPos = m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos();
+			g_LSPClient.textDocumentCompletion("file://"+ m_Editor.getTabBar().getCurrentTab()->getFilePath().string(), cursorPos.first + 1, cursorPos.second + 1);
+			g_LSPClient.setOnCompletion([](int id, const std::vector<CompletionItem>& items) {
+				// Handle completion items (e.g., show in UI)
+				std::cout << "Completion ID: " << id << "\n";
+				for (const auto& item : items) {
+					std::cout << " - " << item.label << "\n";
+				}
+			});
 		}
 
 		//TOOD find better way to index 
@@ -215,6 +233,8 @@ void Application::Update()
 		m_UIManager.draw(m_TreeView, m_Project);
 
 		m_UIManager.draw(m_MenuBar, m_Editor, m_Project);
+
+		m_UIManager.draw(m_StatusBar, m_Editor, m_Project);
 
 
 		this->EndFrame();
