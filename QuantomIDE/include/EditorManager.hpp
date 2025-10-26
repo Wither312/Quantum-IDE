@@ -37,6 +37,10 @@ public:
 
 	bool isDirty() const { return m_Dirty; }
 	void markClean() { m_Dirty = false; }
+
+	void setCursorPos(size_t pos);
+	std::pair<size_t, size_t> getCursorPos() const; // returns cursor line then column
+	size_t getCursorIndex() const { return m_CursorPos; }
 private:
 	std::string m_TextBuffer;
 	bool m_Dirty = false;
@@ -44,7 +48,7 @@ private:
 	std::vector<std::string> m_UndoStack;
 	std::vector<std::string> m_RedoStack;
 
-	std::vector<size_t> m_LineOffsets;
+	size_t m_CursorPos = 0;
 };
 
 // Handles syntax highlighting of text

@@ -27,15 +27,6 @@ void Document::setText(const std::string &text)
 	m_TextBuffer = text;
 	m_UndoStack.clear();
 	m_RedoStack.clear();
-	m_LineOffsets.clear();
-	m_LineOffsets.push_back(0);
-	for (int i = 0; i < text.size(); i++)
-	{
-		if (text[i] == '\n')
-		{
-			m_LineOffsets.push_back(i + 1);
-		}
-	}
 	m_Dirty = true;
 }
 
@@ -62,6 +53,23 @@ void Document::redo()
 		m_TextBuffer = m_RedoStack.back();
 		m_RedoStack.pop_back();
 	}
+}
+
+void Document::setCursorPos(size_t pos) {
+	m_CursorPos = std::min(pos, m_TextBuffer.size());
+}
+
+std::pair<size_t, size_t> Document::getCursorPos() const {
+	int line = 0, col = 0;
+	for (size_t i = 0; i < m_CursorPos && i < m_TextBuffer.size(); i++) {
+		if (m_TextBuffer[i] == '\n') {
+			line++;
+			col = 0;
+		} else {
+			col++;
+		}
+	}
+	return {line, col};
 }
 
 // -------- SyntaxHighlighter --------

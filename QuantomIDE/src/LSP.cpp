@@ -17,8 +17,6 @@
 #include <cstdlib>
 #endif
 
-LSPClient g_LSPClient;
-
 LSPClient::LSPClient(std::string serverPath, std::vector<std::string> args)
     : serverPath(std::move(serverPath)), args(std::move(args)) {}
 
