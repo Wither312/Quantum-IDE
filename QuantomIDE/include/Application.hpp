@@ -27,7 +27,7 @@ class Application
 {
 public:
     // Constructor / Destructor
-    Application(const std::string& title = "Quantum IDE", int width = 1280, int height = 720);
+    Application(const std::string& title = "Quantom IDE", int width = 1280, int height = 720);
     ~Application();
 
     // Prevent copy
