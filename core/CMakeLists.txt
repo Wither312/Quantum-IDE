@@ -45,4 +45,5 @@ target_compile_features(core PUBLIC cxx_std_20)
 # If using MSVC, enable multi-processor compilation
 if (MSVC)
     target_compile_options(core PRIVATE /MP)
+    target_compile_definitions(core PRIVATE NOMINMAX)
 endif()

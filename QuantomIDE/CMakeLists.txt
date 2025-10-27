@@ -77,4 +77,6 @@ else()
         OpenGL::GL
         core
     )
+    target_compile_definitions(QuantomIDE PRIVATE NOMINMAX)
+
 endif()
