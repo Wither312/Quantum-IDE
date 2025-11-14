@@ -200,7 +200,7 @@ void EditorManager::openFile(const std::string &filepath)
 		languageId = "cpp";
 	}
 	std::string text = buffer.str();
-	g_LSPClient.textDocumentDidOpen(uri, languageId, text);
+	g_LSPClient.textDocumentDidOpen(filepath, languageId, text);
 }
 
 void EditorManager::closeFile(int tabIndex)
@@ -237,7 +237,7 @@ void TabBar::saveAll()
 std::optional<std::filesystem::path> EditorTab::save()
 {
 	auto buffer = m_Document.get()->getText();
-	auto path = g_Core.getFileSystem()->saveFile(buffer, m_Path);
+	const auto path = g_Core.getFileSystem()->saveFile(buffer, m_Path);
 	if (path.has_value())
 	{
 
@@ -246,7 +246,7 @@ std::optional<std::filesystem::path> EditorTab::save()
 		m_Document.get()->markClean();
 
 		std::string uri = "file://" + std::filesystem::absolute(path.value()).string();
-		g_LSPClient.textDocumentDidChange(uri, buffer);
+		g_LSPClient.textDocumentDidChange(path.value(), buffer);
 		return std::optional<std::filesystem::path>(m_Path);
 	}
 	LOG("Warning: File save operation failed or was cancelled by user.", core::Log::LogLevel::Warn);

@@ -129,10 +129,12 @@ void Application::ShowMainDockSpace()
 	{
 		if (!m_debugSessionActive) m_debugSessionActive = true;
 		m_DebugSystem = DebugSystem();
-		m_DebugSystem.loadExecutable(m_Project.getRootDirectory().string() + " \\" + m_Project.getName());
-		m_DebugSystem.addBreakpoint("filename", 12);
-		m_DebugSystem.getLocalVariables();
-		m_DebugSystem.run();
+		if (!m_DebugSystem.loadExecutable(m_Project.getRootDirectory().string() + "\\" + m_Project.getName()))
+		{
+			m_DebugSystem.addBreakpoint(m_Project.getName() + ".cpp", 5);
+			m_DebugSystem.getLocalVariables();
+			m_DebugSystem.run();
+		}
 
 
 	}
@@ -214,17 +216,17 @@ void Application::Update()
 			std::cout << m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos().first << " " << m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos().second << std::endl;
 		}
 
-		if (ImGui::IsWindowFocused() && ImGui::IsKeyDown(ImGuiKey_Space) && ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) {
+		if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) {
 			// Trigger autocomplete
 			std::pair<int, int> cursorPos = m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos();
-			g_LSPClient.textDocumentCompletion("file://"+ m_Editor.getTabBar().getCurrentTab()->getFilePath().string(), cursorPos.first + 1, cursorPos.second + 1);
+			g_LSPClient.textDocumentCompletion(m_Editor.getTabBar().getCurrentTab()->getFilePath(), cursorPos.first + 1, cursorPos.second + 1);
 			g_LSPClient.setOnCompletion([](int id, const std::vector<CompletionItem>& items) {
 				// Handle completion items (e.g., show in UI)
 				std::cout << "Completion ID: " << id << "\n";
 				for (const auto& item : items) {
 					std::cout << " - " << item.label << "\n";
 				}
-			});
+				});
 		}
 
 		//TOOD find better way to index 

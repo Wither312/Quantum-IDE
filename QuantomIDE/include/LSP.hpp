@@ -8,6 +8,10 @@
 #include <unordered_map>
 #include <functional>
 
+#ifdef WIN32
+#include <Windows.h>
+#endif
+
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
@@ -20,7 +24,7 @@ struct CompletionItem {
 
 class LSPClient {
 public:
-    using OnDiagnostics = std::function<void(const std::string& uri, const json& diagnostics)>;
+    using OnDiagnostics = std::function<void(const std::filesystem::path& uri, const json& diagnostics)>;
     using OnCompletion = std::function<void(int id, const std::vector<CompletionItem>& items)>;
     using OnLog = std::function<void(const std::string& message)>;
 
@@ -32,9 +36,9 @@ public:
     void stop();
 
     // Requests
-    int textDocumentCompletion(const std::string& uri, int line, int character);
-    void textDocumentDidOpen(const std::string& uri, const std::string& languageId, const std::string& text);
-    void textDocumentDidChange(const std::string& uri, const std::string& text);
+    int textDocumentCompletion(const std::filesystem::path& uri, int line, int character);
+    void textDocumentDidOpen(const std::filesystem::path& uri, const std::string& languageId, const std::string& text);
+    void textDocumentDidChange(const std::filesystem::path& uri, const std::string& text);
 
     // Configuration
     void setOnDiagnostics(OnDiagnostics cb) { diagnosticsCB = std::move(cb); }
@@ -46,10 +50,10 @@ private:
 
 #ifdef _WIN32
     // Windows handles
-    void* processHandle = nullptr;
-    void* threadHandle = nullptr;
-    void* childStd_IN_Wr = nullptr;
-    void* childStd_OUT_Rd = nullptr;
+    HANDLE processHandle = NULL;
+    HANDLE threadHandle = NULL;
+    HANDLE childStd_IN_Wr = NULL;
+    HANDLE childStd_OUT_Rd = NULL;
 #else
     // POSIX
     int toChild_fd = -1;

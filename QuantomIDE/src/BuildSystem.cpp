@@ -7,6 +7,8 @@ BuildSystem::BuildSystem()
 {
 	m_Compiler = Compiler::gcc;
 	m_BuildFlags.push_back(CompilerFlag::Cpp20);
+	m_BuildFlags.push_back(CompilerFlag::Optimize0);
+	m_BuildFlags.push_back(CompilerFlag::Debug);
 }
 
 void BuildSystem::BuildCurrentProject(EditorManager& p_Editor, Project& p_Project)

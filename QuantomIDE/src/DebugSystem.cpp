@@ -9,20 +9,25 @@ DebugSystem::~DebugSystem()
 {
 	LOG("Debugging has be stopped", core::Log::LogLevel::Tracer);
 }
-void DebugSystem::loadExecutable(const std::filesystem::path& filePath)
+int DebugSystem::loadExecutable(std::filesystem::path filePath)
 {
 	if (filePath.empty())
 	{
 		LOG("[DebugSystem]: Executable filepath is empty", core::Log::LogLevel::Warn);
-		return;
+		return 1;
 	}
-	if (!std::filesystem::exists(m_executablePath))
+
+#ifdef _WIN32
+	filePath.concat(".exe");
+#endif
+	if (!std::filesystem::exists(filePath))
 	{
 		LOG("[DebugSystem]: Executable filepath does not exist", core::Log::LogLevel::Warn);
-		return;
+		return 1;
 	}
 	m_executablePath = filePath;
 	LOG(std::string("[DebugSystem]: Built GDB command: " + m_DebugTask).c_str(), core::Log::LogLevel::Tracer);
+	return 0;
 }
 void DebugSystem::run()
 {
@@ -41,7 +46,7 @@ void DebugSystem::run()
 	cmd << " --ex run";
 
 	// Add the target executable
-	cmd << " --args \"" << m_executablePath << "\"";
+	cmd << " --args " << m_executablePath;
 
 	std::string gdbCommand = cmd.str();
 
@@ -77,6 +82,7 @@ void DebugSystem::addBreakpoint(const std::string& file, int line)
 	Breakpoint bp;
 	bp.type = BreakpointType::LINE;
 	bp.file = file;
+	bp.line = line;
 	bp.status = BreakpointStatus::ENABLED;
 	m_breakpoints.push_back(bp);
 }
