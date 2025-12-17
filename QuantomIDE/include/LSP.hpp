@@ -10,6 +10,7 @@
 #include <memory>
 #include <filesystem>
 
+#include "Log.hpp"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;

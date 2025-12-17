@@ -7,7 +7,7 @@ DebugSystem::DebugSystem() :
 }
 DebugSystem::~DebugSystem()
 {
-	LOG("Debugging has be stopped", core::Log::LogLevel::Tracer);
+	LOG("Debugging has been stopped", core::Log::LogLevel::Tracer);
 }
 int DebugSystem::loadExecutable(std::filesystem::path filePath)
 {

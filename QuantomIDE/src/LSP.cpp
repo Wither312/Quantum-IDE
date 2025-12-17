@@ -80,12 +80,17 @@ public:
         siStartInfo.hStdInput = hChildStd_IN_Rd;
         siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
 
+        LOG("Spawning: %s %s", core::Log::Tracer, serverPath.c_str(), commandLine.c_str());
+
         BOOL bSuccess = CreateProcessW(nullptr, wCommandLine.data(), nullptr, nullptr, TRUE,
                                      CREATE_NO_WINDOW, nullptr, nullptr, &siStartInfo, &piProcInfo);
 
         if (!bSuccess) {
+            DWORD err = GetLastError();
             CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
-            CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr); return false;
+            CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr); 
+            LOG("CreateProcessW failed: %lu", core::Log::Error, err);
+            return false;
         }
 
         // Store handles
@@ -251,7 +256,7 @@ bool LSPClient::start() {
     if (running) return true;
 
     if (!platform->spawnClangd(serverPath, args)) {
-        if (logCB) logCB("Failed to spawn clangd.");
+        if (logCB) LOG("Failed to spawn clangd process", core::Log::LogLevel::Error);
         return false;
     }
 
@@ -386,7 +391,7 @@ void LSPClient::readerLoop() {
                     json msg = json::parse(content);
                     handleJsonMessage(msg);
                 } catch (const std::exception& e) {
-                    if (logCB) logCB(std::string("Failed to parse JSON: ") + e.what());
+                    if (logCB) LOG("Failed to parse JSON: %s", core::Log::LogLevel::Error, e.what());
                 }
             }
         }

@@ -4,7 +4,8 @@
 #define IMGUI_ENABLE_DOCKING
 
 core::Core g_Core;
-LSPClient g_LSPClient("clangd", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
+LSPClient g_LSPClient("C:\\Program Files\\LLVM\\bin\\clangd.exe", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
+//LSPClient g_LSPClient("clangd", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
 
 inline static void glfw_error_callback(int error, const char* description)
 {
@@ -30,7 +31,7 @@ Application::Application(const std::string& title, int width, int height)
 	}
 
 	if (!g_LSPClient.start()) {
-		std::cerr << "LSP Client failed to start!\n";
+		LOG("[LSP Client] clangd failed to start!", core::Log::LogLevel::Error);
 	}
 }
 Application::~Application()
