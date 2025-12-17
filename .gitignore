@@ -1,5 +1,6 @@
 ﻿# IDE-specific folders
 .vs/
+.idea/
 
 # Build output
 out/

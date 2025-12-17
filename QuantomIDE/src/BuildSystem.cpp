@@ -29,6 +29,7 @@ void BuildSystem::BuildCurrentProject(EditorManager& p_Editor, Project& p_Projec
 	std::thread([this, &p_Project]() {
 		std::string output;
 
+#ifdef _WIN32
 		std::string buildCommand =
 			"cd \"" + p_Project.getRootDirectory().string() + "\""
 			+ " && " + parseCompiler(m_Compiler) + " "
@@ -36,6 +37,15 @@ void BuildSystem::BuildCurrentProject(EditorManager& p_Editor, Project& p_Projec
 			+ BuildFiles(p_Project.getSourceFiles()) + " "
 			+ " -o \"" + p_Project.getRootDirectory().string() + "\\" + p_Project.getName() + ".exe\""
 			+ " 2>&1"; // Redirect stderr to stdout
+#else
+		std::string buildCommand =
+			"cd \"" + p_Project.getRootDirectory().string() + "\""
+			+ " && " + parseCompiler(m_Compiler) + " "
+			+ BuildFlags(m_BuildFlags) + " "
+			+ BuildFiles(p_Project.getSourceFiles()) + " "
+			+ " -o \"" + p_Project.getRootDirectory().string() + "/" + p_Project.getName() + "\""
+			+ " 2>&1"; // Redirect stderr to stdout
+#endif
 
 #ifdef _WIN32
 		FILE* pipe = _popen(buildCommand.c_str(), "r");
@@ -79,8 +89,11 @@ void BuildSystem::RunCurrentProject(const Project& p_Project)
 		LOG("No project is open", core::Log::LogLevel::Warn);
 		return;
 	}
+#ifdef _WIN32
 	std::string command = "\"" + p_Project.getRootDirectory().string() + "\\" + p_Project.getName() + "\"";  // Quote it in case of spaces
-
+#else
+	std::string command = "\"" + p_Project.getRootDirectory().string() + "/" + p_Project.getName() + "\"";  // Quote it in case of spaces
+#endif
 	std::string result;
 	char buffer[128];
 
@@ -101,6 +114,7 @@ void BuildSystem::RunCurrentProject(const Project& p_Project)
 
 	LOG("Console pipe output: %s", core::Log::LogLevel::Tracer, result.c_str());
 }
+
 std::string BuildSystem::BuildFlags(const std::vector<CompilerFlag>& flags)
 {
 	std::string compilerFlags;
@@ -109,6 +123,7 @@ std::string BuildSystem::BuildFlags(const std::vector<CompilerFlag>& flags)
 	}
 	return compilerFlags;
 }
+
 std::string BuildSystem::BuildFiles(std::vector<std::filesystem::path> p_Sources)
 {
 	std::string inputFiles;

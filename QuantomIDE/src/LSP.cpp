@@ -1,14 +1,13 @@
 #include "LSP.hpp"
-
 #include <iostream>
 #include <sstream>
+#include <filesystem>
 #include <cstring>
-#include <vector>
-#include <Log.hpp>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #include <memory>
+static std::string utf8FromWString(const std::wstring& w);
 #else
 #include <unistd.h>
 #include <sys/types.h>
@@ -17,538 +16,490 @@
 #include <cstdlib>
 #endif
 
+namespace fs = std::filesystem;
+
+// ==================== PLATFORM IMPLEMENTATIONS ====================
+
+#ifdef _WIN32
+class Win32PlatformImpl : public LSPClient::PlatformImpl {
+public:
+    HANDLE processHandle = NULL;
+    HANDLE childStd_IN_Wr = NULL;
+    HANDLE childStd_OUT_Rd = NULL;
+
+    ~Win32PlatformImpl() override {
+        closeHandles();
+    }
+
+    bool spawnClangd(const std::string& serverPath, const std::vector<std::string>& args) override {
+        SECURITY_ATTRIBUTES saAttr{};
+        saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+        saAttr.bInheritHandle = TRUE;
+        saAttr.lpSecurityDescriptor = nullptr;
+
+        HANDLE hChildStd_OUT_Rd = nullptr;
+        HANDLE hChildStd_OUT_Wr = nullptr;
+        HANDLE hChildStd_IN_Rd = nullptr;
+        HANDLE hChildStd_IN_Wr = nullptr;
+
+        // Create stdout pipe
+        if (!CreatePipe(&hChildStd_OUT_Rd, &hChildStd_OUT_Wr, &saAttr, 0)) return false;
+        if (!SetHandleInformation(hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0)) {
+            CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr); return false;
+        }
+
+        // Create stdin pipe
+        if (!CreatePipe(&hChildStd_IN_Rd, &hChildStd_IN_Wr, &saAttr, 0)) {
+            CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr); return false;
+        }
+        if (!SetHandleInformation(hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0)) {
+            CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
+            CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr); return false;
+        }
+
+        // Build command line
+        std::string commandLine = "\"" + serverPath + "\"";
+        for (const auto& arg : args) {
+            commandLine += " \"" + arg + "\"";
+        }
+
+        int wLen = MultiByteToWideChar(CP_UTF8, 0, commandLine.c_str(), -1, nullptr, 0);
+        if (wLen == 0) {
+            CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
+            CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr); return false;
+        }
+
+        std::wstring wCommandLine(wLen, L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, commandLine.c_str(), -1, wCommandLine.data(), wLen);
+
+        PROCESS_INFORMATION piProcInfo{};
+        STARTUPINFOW siStartInfo{};
+        siStartInfo.cb = sizeof(STARTUPINFOW);
+        siStartInfo.hStdError = hChildStd_OUT_Wr;
+        siStartInfo.hStdOutput = hChildStd_OUT_Wr;
+        siStartInfo.hStdInput = hChildStd_IN_Rd;
+        siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+        BOOL bSuccess = CreateProcessW(nullptr, wCommandLine.data(), nullptr, nullptr, TRUE,
+                                     CREATE_NO_WINDOW, nullptr, nullptr, &siStartInfo, &piProcInfo);
+
+        if (!bSuccess) {
+            CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
+            CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr); return false;
+        }
+
+        // Store handles
+        childStd_OUT_Rd = hChildStd_OUT_Rd;
+        childStd_IN_Wr = hChildStd_IN_Wr;
+        processHandle = piProcInfo.hProcess;
+
+        // Close unused handles
+        CloseHandle(hChildStd_OUT_Wr);
+        CloseHandle(hChildStd_IN_Rd);
+        CloseHandle(piProcInfo.hThread);
+
+        return true;
+    }
+
+    bool writeRaw(const std::string& s) override {
+        if (childStd_IN_Wr == nullptr) return false;
+        DWORD exitCode = 0;
+        GetExitCodeProcess(processHandle, &exitCode);
+        if (exitCode != STILL_ACTIVE) return false;
+
+        DWORD totalWritten = 0;
+        BOOL bSuccess = WriteFile(childStd_IN_Wr, s.c_str(), (DWORD)s.size(), &totalWritten, nullptr);
+        return bSuccess && totalWritten == s.size();
+    }
+
+    void closeHandles() override {
+        if (childStd_IN_Wr != nullptr) {
+            CloseHandle(childStd_IN_Wr);
+            childStd_IN_Wr = nullptr;
+        }
+        if (processHandle != NULL) {
+            WaitForSingleObject(processHandle, 2000);
+            CloseHandle(processHandle);
+            processHandle = NULL;
+        }
+        if (childStd_OUT_Rd != NULL) {
+            CloseHandle(childStd_OUT_Rd);
+            childStd_OUT_Rd = NULL;
+        }
+    }
+
+    void* getReadHandle() const override { return childStd_OUT_Rd; }
+    bool isProcessAlive() const override {
+        if (processHandle == NULL) return false;
+        DWORD exitCode = 0;
+        GetExitCodeProcess(processHandle, &exitCode);
+        return exitCode == STILL_ACTIVE;
+    }
+};
+#endif
+
+#ifndef _WIN32
+class LinuxPlatformImpl : public LSPClient::PlatformImpl {
+public:
+    int toChild_fd = -1;
+    int fromChild_fd = -1;
+    pid_t childPid = -1;
+
+    ~LinuxPlatformImpl() override {
+        closeHandles();
+    }
+
+    bool spawnClangd(const std::string& serverPath, const std::vector<std::string>& args) override {
+        int inpipe[2], outpipe[2];
+        if (pipe(inpipe) == -1 || pipe(outpipe) == -1) {
+            if (inpipe[0] != -1) { close(inpipe[0]); close(inpipe[1]); }
+            if (outpipe[0] != -1) { close(outpipe[0]); close(outpipe[1]); }
+            return false;
+        }
+
+        pid_t pid = fork();
+        if (pid < 0) {
+            close(inpipe[0]); close(inpipe[1]);
+            close(outpipe[0]); close(outpipe[1]);
+            return false;
+        }
+
+        if (pid == 0) { // child
+            dup2(inpipe[0], STDIN_FILENO);
+            dup2(outpipe[1], STDOUT_FILENO);
+            close(inpipe[0]); close(inpipe[1]);
+            close(outpipe[0]); close(outpipe[1]);
+
+            std::vector<char*> argv;
+            argv.push_back(const_cast<char*>(serverPath.c_str()));
+            for (const auto& a : args) argv.push_back(const_cast<char*>(a.c_str()));
+            argv.push_back(nullptr);
+
+            execvp(argv[0], argv.data());
+            _exit(127);
+        }
+
+        // parent
+        childPid = pid;
+        toChild_fd = inpipe[1];
+        fromChild_fd = outpipe[0];
+        close(inpipe[0]);
+        close(outpipe[1]);
+
+        int flags = fcntl(fromChild_fd, F_GETFL, 0);
+        fcntl(fromChild_fd, F_SETFL, flags & ~O_NONBLOCK);
+
+        return true;
+    }
+
+    bool writeRaw(const std::string& s) override {
+        if (toChild_fd == -1) return false;
+        ssize_t total = 0;
+        const char* ptr = s.c_str();
+        ssize_t remaining = (ssize_t)s.size();
+        while (remaining > 0) {
+            ssize_t w = write(toChild_fd, ptr + total, remaining);
+            if (w <= 0) return false;
+            total += w;
+            remaining -= w;
+        }
+        return true;
+    }
+
+    void closeHandles() override {
+        if (toChild_fd != -1) {
+            close(toChild_fd);
+            toChild_fd = -1;
+        }
+        if (childPid != -1) {
+            int status = 0;
+            waitpid(childPid, &status, 0);
+            childPid = -1;
+        }
+        if (fromChild_fd != -1) {
+            close(fromChild_fd);
+            fromChild_fd = -1;
+        }
+    }
+
+    void* getReadHandle() const override { return (void*)(intptr_t)fromChild_fd; }
+    bool isProcessAlive() const override { return childPid != -1; }
+};
+#endif
+
+// ==================== LSPCLIENT IMPLEMENTATION ====================
+
 LSPClient::LSPClient(std::string serverPath, std::vector<std::string> args)
-	: serverPath(std::move(serverPath)), args(std::move(args)) {
+    : serverPath(std::move(serverPath)), args(std::move(args)) {
+#ifdef _WIN32
+    platform = std::make_unique<Win32PlatformImpl>();
+#else
+    platform = std::make_unique<LinuxPlatformImpl>();
+#endif
 }
 
 LSPClient::~LSPClient() {
-	stop();
+    stop();
 }
 
 int LSPClient::nextId() {
-	std::lock_guard<std::mutex> lock(writeMutex);
-	return idCounter++;
+    std::lock_guard<std::mutex> lock(writeMutex);
+    return idCounter++;
 }
 
 bool LSPClient::start() {
-	if (running) return true;
+    if (running) return true;
 
-#ifdef WIN32
-	if (!spawnClangdWin()) {
-		if (logCB) logCB("Failed to spawn clangd on Windows.");
-		return false;
-	}
-#else
-	if (!spawnClangdLinux()) {
-		if (logCB) logCB("Failed to spawn clangd on Linux.");
-		return false;
-	}
-#endif
+    if (!platform->spawnClangd(serverPath, args)) {
+        if (logCB) logCB("Failed to spawn clangd.");
+        return false;
+    }
 
-	running = true;
-	readerThread = std::thread(&LSPClient::readerLoop, this);
+    running = true;
+    readerThread = std::thread(&LSPClient::readerLoop, this);
 
-	json initParams = {
-		{"processId", (int)getpid()},
-		{"rootUri", nullptr},
-		{"capabilities", json::object()}
-	};
+    // Initialize LSP
+    json initParams = {
+        {"processId", (int)getpid()},
+        {"rootUri", nullptr},
+        {"capabilities", json::object()}
+    };
 
-	json initRequest = {
-		{"jsonrpc", "2.0"},
-		{"id", nextId()},
-		{"method", "initialize"},
-		{"params", initParams}
-	};
+    json initRequest = {
+        {"jsonrpc", "2.0"},
+        {"id", nextId()},
+        {"method", "initialize"},
+        {"params", initParams}
+    };
 
-	std::string initStr = initRequest.dump();
-	std::ostringstream header;
-	header << "Content-Length: " << initStr.size() << "\r\n\r\n" << initStr;
-	writeRaw(header.str());
+    std::string initStr = initRequest.dump();
+    std::ostringstream header;
+    header << "Content-Length: " << initStr.size() << "\r\n\r\n" << initStr;
+    writeRaw(header.str());
 
-	json initNotif = {
-		{"jsonrpc", "2.0"},
-		{"method", "initialized"},
-		{"params", json::object()}
-	};
+    json initNotif = {
+        {"jsonrpc", "2.0"},
+        {"method", "initialized"},
+        {"params", json::object()}
+    };
 
-	std::string notifStr = initNotif.dump();
-	std::ostringstream notifHeader;
-	notifHeader << "Content-Length: " << notifStr.size() << "\r\n\r\n" << notifStr;
-	writeRaw(notifHeader.str());
+    std::string notifStr = initNotif.dump();
+    std::ostringstream notifHeader;
+    notifHeader << "Content-Length: " << notifStr.size() << "\r\n\r\n" << notifStr;
+    writeRaw(notifHeader.str());
 
-	return true;
+    return true;
 }
 
 void LSPClient::stop() {
-	if (!running) return;
-	running = false;
+    if (!running) return;
+    running = false;
 
-	json shutdownRequest = {
-		{"jsonrpc", "2.0"},
-		{"id", nextId()},
-		{"method", "shutdown"},
-		{"params", json::object()}
-	};
+    json shutdownRequest = {
+        {"jsonrpc", "2.0"},
+        {"id", nextId()},
+        {"method", "shutdown"},
+        {"params", json::object()}
+    };
 
-	std::string shutdownStr = shutdownRequest.dump();
-	std::ostringstream header;
-	header << "Content-Length: " << shutdownStr.size() << "\r\n\r\n" << shutdownStr;
-	writeRaw(header.str());
+    std::string shutdownStr = shutdownRequest.dump();
+    std::ostringstream header;
+    header << "Content-Length: " << shutdownStr.size() << "\r\n\r\n" << shutdownStr;
+    writeRaw(header.str());
 
-	json exitNotif = {
-		{"jsonrpc", "2.0"},
-		{"method", "exit"},
-		{"params", json::object()}
-	};
+    json exitNotif = {
+        {"jsonrpc", "2.0"},
+        {"method", "exit"},
+        {"params", json::object()}
+    };
 
-	std::string exitStr = exitNotif.dump();
-	std::ostringstream exitHeader;
-	exitHeader << "Content-Length: " << exitStr.size() << "\r\n\r\n" << exitStr;
-	writeRaw(exitHeader.str());
+    std::string exitStr = exitNotif.dump();
+    std::ostringstream exitHeader;
+    exitHeader << "Content-Length: " << exitStr.size() << "\r\n\r\n" << exitStr;
+    writeRaw(exitHeader.str());
 
-#ifdef WIN32
-	closeHandlesWin();
-#else
-	if (toChild_fd != -1) {
-		close(toChild_fd);
-		toChild_fd = -1;
-	}
-	if (readerThread.joinable()) readerThread.join();
-	if (childPid != -1) {
-		int status = 0;
-		waitpid(childPid, &status, 0);
-		childPid = -1;
-	}
-#endif
+    platform->closeHandles();
+
+    if (readerThread.joinable()) {
+        readerThread.join();
+    }
 }
 
 bool LSPClient::writeRaw(const std::string& s) {
-#ifdef WIN32
-	return writeRawWin(s);
-#else
-	return writeRawLinux(s);
-#endif
+    return platform->writeRaw(s);
 }
-
-#ifndef WIN32
-
-bool LSPClient::spawnClangdLinux() {
-	int inpipe[2];  // parent -> child
-	int outpipe[2]; // child -> parent
-
-	if (pipe(inpipe) == -1) return false;
-	if (pipe(outpipe) == -1) { close(inpipe[0]); close(inpipe[1]); return false; }
-
-	pid_t pid = fork();
-	if (pid < 0) {
-		close(inpipe[0]); close(inpipe[1]);
-		close(outpipe[0]); close(outpipe[1]);
-		return false;
-	}
-
-	if (pid == 0) {
-		// child
-		dup2(inpipe[0], STDIN_FILENO);
-		dup2(outpipe[1], STDOUT_FILENO);
-
-		// close fds not needed
-		close(inpipe[0]); close(inpipe[1]);
-		close(outpipe[0]); close(outpipe[1]);
-
-		// build argv
-		std::vector<char*> argv;
-		argv.push_back(const_cast<char*>(serverPath.c_str()));
-		for (auto& a : args) argv.push_back(const_cast<char*>(a.c_str()));
-		argv.push_back(nullptr);
-
-		execvp(argv[0], argv.data());
-		_exit(127);
-	}
-
-	// parent
-	childPid = pid;
-	toChild_fd = inpipe[1];
-	fromChild_fd = outpipe[0];
-
-	// close parent unused ends
-	close(inpipe[0]);
-	close(outpipe[1]);
-
-	// set blocking read (default)
-	int flags = fcntl(fromChild_fd, F_GETFL, 0);
-	fcntl(fromChild_fd, F_SETFL, flags & ~O_NONBLOCK);
-
-	return true;
-}
-
-bool LSPClient::writeRawLinux(const std::string& s) {
-	std::lock_guard<std::mutex> lock(writeMutex);
-	if (toChild_fd == -1) return false;
-	ssize_t total = 0;
-	const char* ptr = s.c_str();
-	ssize_t remaining = (ssize_t)s.size();
-	while (remaining > 0) {
-		ssize_t w = write(toChild_fd, ptr + total, remaining);
-		if (w <= 0) return false;
-		total += w;
-		remaining -= w;
-	}
-	return true;
-}
-#endif
-
-#ifdef WIN32
-
-static std::string utf8FromWString(const std::wstring& w) {
-	if (w.empty()) return {};
-	int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, w.data(), (int)w.size(), nullptr, 0, nullptr, nullptr);
-	std::string strTo(sizeNeeded, 0);
-	WideCharToMultiByte(CP_UTF8, 0, w.data(), (int)w.size(), strTo.data(), sizeNeeded, nullptr, nullptr);
-	return strTo;
-}
-
-bool LSPClient::spawnClangdWin() {
-	SECURITY_ATTRIBUTES saAttr{};
-	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
-	saAttr.bInheritHandle = TRUE;
-	saAttr.lpSecurityDescriptor = nullptr;
-
-	HANDLE hChildStd_OUT_Rd = nullptr;
-	HANDLE hChildStd_OUT_Wr = nullptr;
-	HANDLE hChildStd_IN_Rd = nullptr;
-	HANDLE hChildStd_IN_Wr = nullptr;
-
-	// Create stdout pipe
-	if (!CreatePipe(&hChildStd_OUT_Rd, &hChildStd_OUT_Wr, &saAttr, 0)) return false;
-	if (!SetHandleInformation(hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0)) {
-		CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
-		return false;
-	}
-
-	// Create stdin pipe
-	if (!CreatePipe(&hChildStd_IN_Rd, &hChildStd_IN_Wr, &saAttr, 0)) {
-		CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
-		return false;
-	}
-	if (!SetHandleInformation(hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0)) {
-		CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
-		CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr);
-		return false;
-	}
-
-	// Build command line
-	std::string commandLine = "\"" + serverPath + "\"";
-	for (auto& arg : args) {
-		commandLine += " \"" + arg + "\"";
-	}
-
-	int wLen = MultiByteToWideChar(CP_UTF8, 0, commandLine.c_str(), -1, nullptr, 0);
-	if (wLen == 0) {
-		CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
-		CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr);
-		return false;
-	}
-
-	std::wstring wCommandLine(wLen, L'\0');
-	MultiByteToWideChar(CP_UTF8, 0, commandLine.c_str(), -1, wCommandLine.data(), wLen);
-
-	PROCESS_INFORMATION piProcInfo{};
-	STARTUPINFOW siStartInfo{};
-	siStartInfo.cb = sizeof(STARTUPINFOW);
-	siStartInfo.hStdError = hChildStd_OUT_Wr;
-	siStartInfo.hStdOutput = hChildStd_OUT_Wr;
-	siStartInfo.hStdInput = hChildStd_IN_Rd;
-	siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
-
-	BOOL bSuccess = CreateProcessW(
-		nullptr,
-		wCommandLine.data(),
-		nullptr,
-		nullptr,
-		TRUE,
-		CREATE_NO_WINDOW,
-		nullptr,
-		nullptr,
-		&siStartInfo,
-		&piProcInfo
-	);
-
-	if (!bSuccess) {
-		CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
-		CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr);
-		return false;
-	}
-
-	// Store handles
-	childStd_OUT_Rd = hChildStd_OUT_Rd;
-	childStd_IN_Wr = hChildStd_IN_Wr;
-	processHandle = piProcInfo.hProcess;
-
-	// Close unused handles
-	CloseHandle(hChildStd_OUT_Wr);
-	CloseHandle(hChildStd_IN_Rd);
-	CloseHandle(piProcInfo.hThread);
-
-
-
-	return true;
-}
-
-bool LSPClient::writeRawWin(const std::string& s) {
-	std::lock_guard<std::mutex> lock(writeMutex);
-	if (childStd_IN_Wr == nullptr) return false;
-	DWORD exitCode = 0;
-	GetExitCodeProcess(childStd_IN_Wr, &exitCode);
-	if (exitCode != STILL_ACTIVE) {
-		std::cerr << "\n";
-		LOG("LSP process not alive, skipping write", core::Log::LogLevel::Error);
-
-		std::string cmd = "tasklist /FI \"IMAGENAME eq clangd.exe\" /NH";
-
-		FILE* pipe = _popen(cmd.c_str(), "r");
-		if (!pipe) return false;
-
-		char buffer[128];
-		bool alive = false;
-		while (fgets(buffer, sizeof(buffer), pipe)) {
-			std::string line(buffer);
-			if (line.find("clangd.exe") != std::string::npos) {
-				alive = true;
-				break;
-			}
-		}
-		_pclose(pipe);
-
-
-
-
-		return false;
-	}
-
-
-	DWORD totalWritten = 0;
-	BOOL bSuccess = WriteFile(
-		(HANDLE)childStd_IN_Wr,
-		s.c_str(),
-		(DWORD)s.size(),
-		&totalWritten,
-		nullptr
-	);
-	return bSuccess && totalWritten == s.size();
-}
-
-void LSPClient::closeHandlesWin() {
-	if (childStd_IN_Wr != nullptr) {
-		CloseHandle((HANDLE)childStd_IN_Wr);
-		childStd_IN_Wr = nullptr;
-	}
-	// Close read handle to stop reader thread
-	if (readerThread.joinable()) readerThread.join();
-	// Wait for process to exit
-	if (processHandle) {
-		WaitForSingleObject((HANDLE)processHandle, 2000);
-		CloseHandle((HANDLE)processHandle);
-		processHandle = nullptr;
-	}
-	// Close other handles
-	if (childStd_OUT_Rd) {
-		CloseHandle((HANDLE)childStd_OUT_Rd);
-		childStd_OUT_Rd = nullptr;
-	}
-}
-
-#endif
 
 void LSPClient::readerLoop() {
-	std::string buffer;
-	constexpr size_t bufSize = 8192;
-	std::vector<char> readBuf(bufSize);
+    std::string buffer;
+    constexpr size_t bufSize = 8192;
+    std::vector<char> readBuf(bufSize);
 
-	while (running) {
+    while (running) {
+        void* readHandle = platform->getReadHandle();
+        if (!readHandle) break;
+
 #ifdef _WIN32
-		if (childStd_OUT_Rd == nullptr) break;
-		DWORD bytesRead = 0;
-		BOOL bSuccess = ReadFile(
-			childStd_OUT_Rd,
-			readBuf.data(),
-			static_cast<DWORD>(bufSize),
-			&bytesRead,
-			nullptr
-		);
-
-		if (!bSuccess || bytesRead == 0) break;
-
-		buffer.append(readBuf.data(), bytesRead);
-
-		std::string logStr(readBuf.data(), bytesRead);
-		LOG(logStr.c_str(), core::Log::LogLevel::Warn);
+        HANDLE h = (HANDLE)readHandle;
+        if (!platform->isProcessAlive()) break;
+        DWORD bytesRead = 0;
+        BOOL bSuccess = ReadFile(h, readBuf.data(), static_cast<DWORD>(bufSize), &bytesRead, nullptr);
+        if (!bSuccess || bytesRead == 0) break;
 #else
-		if (fromChild_fd == -1) break;
-		ssize_t bytesRead = read(fromChild_fd, readBuf.data(), bufSize);
-		if (bytesRead <= 0) break;
-
-		buffer.append(readBuf.data(), static_cast<size_t>(bytesRead));
+        int fd = (int)(intptr_t)readHandle;
+        if (!platform->isProcessAlive()) break;
+        ssize_t bytesRead = read(fd, readBuf.data(), bufSize);
+        if (bytesRead <= 0) break;
 #endif
 
-		while (true) {
-			size_t pos = buffer.find("\r\n\r\n");
-			if (pos == std::string::npos) break;
+        buffer.append(readBuf.data(), bytesRead);
 
-			std::istringstream headerStream(buffer.substr(0, pos));
-			std::string line;
-			size_t contentLength = 0;
+        while (true) {
+            size_t pos = buffer.find("\r\n\r\n");
+            if (pos == std::string::npos) break;
 
-			while (std::getline(headerStream, line)) {
-				const std::string clPrefix = "Content-Length: ";
-				if (line.rfind(clPrefix, 0) == 0) {
-					std::string lenStr = line.substr(clPrefix.size());
-					size_t i = 0;
-					while (i < lenStr.size() && isspace(static_cast<unsigned char>(lenStr[i]))) i++;
-					try {
-						contentLength = std::stoul(lenStr.substr(i));
-					}
-					catch (...) {
-						contentLength = 0;
-					}
-				}
-			}
+            std::istringstream headerStream(buffer.substr(0, pos));
+            std::string line;
+            size_t contentLength = 0;
 
-			size_t totalMessageSize = pos + 4 + contentLength;
-			if (buffer.size() < totalMessageSize) break;
+            while (std::getline(headerStream, line)) {
+                const std::string clPrefix = "Content-Length: ";
+                if (line.rfind(clPrefix, 0) == 0) {
+                    std::string lenStr = line.substr(clPrefix.size());
+                    size_t i = 0;
+                    while (i < lenStr.size() && isspace(static_cast<unsigned char>(lenStr[i]))) i++;
+                    try {
+                        contentLength = std::stoul(lenStr.substr(i));
+                    } catch (...) {
+                        contentLength = 0;
+                    }
+                }
+            }
 
-			std::string content = buffer.substr(pos + 4, contentLength);
-			buffer.erase(0, totalMessageSize);  // remove processed data
+            size_t totalMessageSize = pos + 4 + contentLength;
+            if (buffer.size() < totalMessageSize) break;
 
-			if (!content.empty()) {
-				try {
-					json msg = json::parse(content);
-					handleJsonMessage(msg);
-					__debugbreak(); // optional debug
-				}
-				catch (const std::exception& e) {
-					if (logCB) logCB(std::string("Failed to parse JSON message: ") + e.what());
-				}
-			}
-		}
-	}
+            std::string content = buffer.substr(pos + 4, contentLength);
+            buffer.erase(0, totalMessageSize);
 
-	running = false;
+            if (!content.empty()) {
+                try {
+                    json msg = json::parse(content);
+                    handleJsonMessage(msg);
+                } catch (const std::exception& e) {
+                    if (logCB) logCB(std::string("Failed to parse JSON: ") + e.what());
+                }
+            }
+        }
+    }
+    running = false;
 }
 
 void LSPClient::handleJsonMessage(const json& msg) {
-	if (msg.contains("method")) {
-		std::string method = msg["method"];
-		if (method == "textDocument/publishDiagnostics") {
-			if (msg.contains("params")) {
-				const auto& params = msg["params"];
-				std::string uri;
-				if (params.contains("uri")) uri = params["uri"].get<std::string>();
-				if (diagnosticsCB) {
-					diagnosticsCB(uri, params["diagnostics"]);
-				}
-			}
-			else {
-				if (logCB) logCB("Notification: " + method + " -> " + msg.dump());
-			}
-		}
-		return;
-	}
-	if (msg.contains("id")) {
-		int id = -1;
-		try { id = msg["id"].get<int>(); }
-		catch (...) { id = -1; }
-		if (id == -1) return;
+    if (msg.contains("method")) {
+        std::string method = msg["method"];
+        if (method == "textDocument/publishDiagnostics") {
+            if (msg.contains("params")) {
+                const auto& params = msg["params"];
+                std::string uriStr;
+                if (params.contains("uri")) uriStr = params["uri"].get<std::string>();
+                fs::path uri = uriStr;
+                if (diagnosticsCB) diagnosticsCB(uri, params["diagnostics"]);
+            }
+        }
+        return;
+    }
 
-		if (msg.contains("result")) {
-			const auto& res = msg["result"];
-			std::vector<CompletionItem> items;
-			if (res.is_object() && res.contains("items") && res["items"].is_array()) {
-				for (const auto& it : res["items"]) {
-					CompletionItem ci;
-					if (it.contains("label")) ci.label = it["label"].get<std::string>();
-					if (it.contains("detail")) ci.detail = it["detail"].get<std::string>();
-					if (it.contains("insertText")) ci.insertText = it["insertText"].get<std::string>();
-					else if (it.contains("textEdit") && it["textEdit"].is_object() && it["textEdit"].contains("newText"))
-						ci.insertText = it["textEdit"]["newText"].get<std::string>();
-					items.push_back(std::move(ci));
-				}
-			}
-			else if (res.is_array()) {
-				for (const auto& it : res) {
-					CompletionItem ci;
-					if (it.contains("label")) ci.label = it["label"].get<std::string>();
-					if (it.contains("detail")) ci.detail = it["detail"].get<std::string>();
-					if (it.contains("insertText")) ci.insertText = it["insertText"].get<std::string>();
-					items.push_back(std::move(ci));
-				}
-			}
-			if (completionCB) completionCB(id, items);
-			return;
-		}
-	}
+    if (msg.contains("id")) {
+        int id = -1;
+        try { id = msg["id"].get<int>(); } catch (...) { return; }
+        if (id == -1) return;
+
+        if (msg.contains("result")) {
+            const auto& res = msg["result"];
+            std::vector<CompletionItem> items;
+            if (res.is_object() && res.contains("items") && res["items"].is_array()) {
+                for (const auto& it : res["items"]) {
+                    CompletionItem ci;
+                    if (it.contains("label")) ci.label = it["label"].get<std::string>();
+                    if (it.contains("detail")) ci.detail = it["detail"].get<std::string>();
+                    if (it.contains("insertText")) ci.insertText = it["insertText"].get<std::string>();
+                    else if (it.contains("textEdit") && it["textEdit"].contains("newText"))
+                        ci.insertText = it["textEdit"]["newText"].get<std::string>();
+                    items.push_back(std::move(ci));
+                }
+            } else if (res.is_array()) {
+                for (const auto& it : res) {
+                    CompletionItem ci;
+                    if (it.contains("label")) ci.label = it["label"].get<std::string>();
+                    if (it.contains("detail")) ci.detail = it["detail"].get<std::string>();
+                    if (it.contains("insertText")) ci.insertText = it["insertText"].get<std::string>();
+                    items.push_back(std::move(ci));
+                }
+            }
+            if (completionCB) completionCB(id, items);
+        }
+    }
 }
 
-int LSPClient::textDocumentCompletion(const std::filesystem::path& uri, int line, int character) {
-	int id = nextId();
-	json params = {
-		{"textDocument", {{"uri", uri}}},
-		{"position", {{"line", line}, {"character", character}}},
-		{"context", json::object()}
-	};
-	json request = {
-		{"jsonrpc", "2.0"},
-		{"id", id},
-		{"method", "textDocument/completion"},
-		{"params", params}
-	};
-	std::string reqStr = request.dump();
-	std::ostringstream header;
-	header << "Content-Length: " << reqStr.size() << "\r\n\r\n" << reqStr;
-	LOG(header.str().c_str(), core::Log::LogLevel::Error);
-	writeRaw(header.str());
-	return id;
+int LSPClient::textDocumentCompletion(const fs::path& uri, int line, int character) {
+    int id = nextId();
+    json params = {
+        {"textDocument", {{"uri", uri.string()}}},
+        {"position", {{"line", line}, {"character", character}}},
+        {"context", json::object()}
+    };
+    json request = {
+        {"jsonrpc", "2.0"},
+        {"id", id},
+        {"method", "textDocument/completion"},
+        {"params", params}
+    };
+    std::string reqStr = request.dump();
+    std::ostringstream header;
+    header << "Content-Length: " << reqStr.size() << "\r\n\r\n" << reqStr;
+    writeRaw(header.str());
+    return id;
 }
 
-void LSPClient::textDocumentDidOpen(const std::filesystem::path& uri, const std::string& languageId, const std::string& text) {
-	json params = {
-		{"textDocument", {
-			{"uri", uri},
-			{"languageId", languageId},
-			{"version", 1},
-			{"text", text}
-		}}
-	};
-	json notif = {
-		{"jsonrpc", "2.0"},
-		{"method", "textDocument/didOpen"},
-		{"params", params}
-	};
-	std::string notifStr = notif.dump();
-	std::ostringstream header;
-	header << "Content-Length: " << notifStr.size() << "\r\n\r\n" << notifStr;
-	writeRaw(header.str());
+void LSPClient::textDocumentDidOpen(const fs::path& uri, const std::string& languageId, const std::string& text) {
+    json params = {
+        {"textDocument", {
+            {"uri", uri.string()},
+            {"languageId", languageId},
+            {"version", 1},
+            {"text", text}
+        }}
+    };
+    json notif = {
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", params}
+    };
+    std::string notifStr = notif.dump();
+    std::ostringstream header;
+    header << "Content-Length: " << notifStr.size() << "\r\n\r\n" << notifStr;
+    writeRaw(header.str());
 }
 
-void LSPClient::textDocumentDidChange(const std::filesystem::path& uri, const std::string& text) {
-	json params = {
-		{"textDocument", {
-			{"uri", uri},
-			{"version", 2}
-		}},
-		{"contentChanges", json::array({
-			json::object({
-				{"text", text}
-			})
-		})}
-	};
-	json notif = {
-		{"jsonrpc", "2.0"},
-		{"method", "textDocument/didChange"},
-		{"params", params}
-	};
-	std::string notifStr = notif.dump();
-	std::ostringstream header;
-	header << "Content-Length: " << notifStr.size() << "\r\n\r\n" << notifStr;
-	writeRaw(header.str());
+void LSPClient::textDocumentDidChange(const fs::path& uri, const std::string& text) {
+    json params = {
+        {"textDocument", {
+            {"uri", uri.string()},
+            {"version", 2}
+        }},
+        {"contentChanges", json::array({
+            json::object({
+                {"text", text}
+            })
+        })}
+    };
+    json notif = {
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didChange"},
+        {"params", params}
+    };
+    std::string notifStr = notif.dump();
+    std::ostringstream header;
+    header << "Content-Length: " << notifStr.size() << "\r\n\r\n" << notifStr;
+    writeRaw(header.str());
 }

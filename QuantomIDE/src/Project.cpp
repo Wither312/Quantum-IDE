@@ -8,7 +8,9 @@ namespace fs = std::filesystem;
 bool Project::createNew(const std::filesystem::path& rootDir, const std::string& pName)
 {
     rootDirectory = rootDir;
-    projectFilePath = std::filesystem::path(rootDir.string() + "\\" + pName);
+
+    projectFilePath = rootDir / (pName + ".qum");
+
     name = pName;
     isopen = true;
 

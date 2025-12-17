@@ -7,10 +7,8 @@
 #include <mutex>
 #include <unordered_map>
 #include <functional>
-
-#ifdef WIN32
-#include <Windows.h>
-#endif
+#include <memory>
+#include <filesystem>
 
 #include "nlohmann/json.hpp"
 
@@ -44,29 +42,28 @@ public:
     void setOnDiagnostics(OnDiagnostics cb) { diagnosticsCB = std::move(cb); }
     void setOnCompletion(OnCompletion cb) { completionCB = std::move(cb); }
     void setOnLog(OnLog cb) { logCB = std::move(cb); }
+
+    // Platform abstraction
+    class PlatformImpl {
+    public:
+        virtual ~PlatformImpl() = default;
+        virtual bool spawnClangd(const std::string& serverPath, const std::vector<std::string>& args) = 0;
+        virtual bool writeRaw(const std::string& s) = 0;
+        virtual void closeHandles() = 0;
+        virtual void* getReadHandle() const = 0;  // HANDLE or int fd
+        virtual bool isProcessAlive() const = 0;
+    };
+
+    std::unique_ptr<PlatformImpl> platform;
+
 private:
     std::string serverPath;
     std::vector<std::string> args;
 
-#ifdef _WIN32
-    // Windows handles
-    HANDLE processHandle = NULL;
-    HANDLE threadHandle = NULL;
-    HANDLE childStd_IN_Wr = NULL;
-    HANDLE childStd_OUT_Rd = NULL;
-#else
-    // POSIX
-    int toChild_fd = -1;
-    int fromChild_fd = -1;
-    pid_t childPid = -1;
-#endif
-
     std::thread readerThread;
-    std::atomic<bool> running = false;
-
+    std::atomic<bool> running{false};
     std::mutex writeMutex;
     int idCounter = 1;
-
     std::unordered_map<int, int> pendingRequests;
 
     // Callbacks
@@ -74,18 +71,9 @@ private:
     OnCompletion completionCB;
     OnLog logCB;
 
-    // helpers
-#ifdef WIN32
-    bool spawnClangdWin();
-    bool writeRawWin(const std::string& s);
-    void closeHandlesWin();
-#else
-    bool spawnClangdLinux();
-    bool writeRawLinux(const std::string& s);
-#endif
-
-    void readerLoop();
+    // Core methods
     int nextId();
-    void handleJsonMessage(const json& msg);
     bool writeRaw(const std::string& s);
+    void readerLoop();
+    void handleJsonMessage(const json& msg);
 };
