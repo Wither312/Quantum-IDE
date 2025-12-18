@@ -45,11 +45,15 @@ public:
         // Create stdout pipe
         if (!CreatePipe(&hChildStd_OUT_Rd, &hChildStd_OUT_Wr, &saAttr, 0)) return false;
         if (!SetHandleInformation(hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0)) {
+			DWORD err = GetLastError();
+			LOG("[spawnClangd]: SetHandleInformation failed: %lu", core::Log::Error, err);
             CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr); return false;
         }
 
         // Create stdin pipe
         if (!CreatePipe(&hChildStd_IN_Rd, &hChildStd_IN_Wr, &saAttr, 0)) {
+			DWORD err = GetLastError();
+			LOG("[spawnClangd]: CreatePipe failed: %lu", core::Log::Error, err);
             CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr); return false;
         }
         if (!SetHandleInformation(hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0)) {
@@ -65,6 +69,7 @@ public:
 
         int wLen = MultiByteToWideChar(CP_UTF8, 0, commandLine.c_str(), -1, nullptr, 0);
         if (wLen == 0) {
+			LOG("Command line failed to convert to wide string", core::Log::Error);
             CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
             CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr); return false;
         }
@@ -77,6 +82,7 @@ public:
         siStartInfo.cb = sizeof(STARTUPINFOW);
         siStartInfo.hStdError = hChildStd_OUT_Wr;
         siStartInfo.hStdOutput = hChildStd_OUT_Wr;
+		siStartInfo.hStdError = hChildStd_OUT_Wr;
         siStartInfo.hStdInput = hChildStd_IN_Rd;
         siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
 
@@ -87,9 +93,9 @@ public:
 
         if (!bSuccess) {
             DWORD err = GetLastError();
+            LOG("[spawnClangd]: CreateProcessW failed: %lu", core::Log::Error, err);
             CloseHandle(hChildStd_OUT_Rd); CloseHandle(hChildStd_OUT_Wr);
             CloseHandle(hChildStd_IN_Rd); CloseHandle(hChildStd_IN_Wr); 
-            LOG("CreateProcessW failed: %lu", core::Log::Error, err);
             return false;
         }
 
@@ -114,6 +120,12 @@ public:
 
         DWORD totalWritten = 0;
         BOOL bSuccess = WriteFile(childStd_IN_Wr, s.c_str(), (DWORD)s.size(), &totalWritten, nullptr);
+
+        if (!bSuccess) {
+            DWORD err = GetLastError();
+            LOG("[writeRaw]: WriteFile failed: %lu", core::Log::Error, err);
+		}
+
         return bSuccess && totalWritten == s.size();
     }
 
@@ -455,7 +467,11 @@ void LSPClient::handleJsonMessage(const json& msg) {
 }
 
 std::string LSPClient::toLspUri(const std::filesystem::path& path) const  {
+#ifdef _WIN32
+    return "file:///" + path.string();
+#else
     return "file://" + path.string();
+#endif
 }
 
 int LSPClient::textDocumentCompletion(const fs::path& uri, int line, int character) {
