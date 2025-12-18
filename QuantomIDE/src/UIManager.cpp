@@ -48,13 +48,20 @@ static inline void DrawEditorTabs(EditorManager& editor, Project& p_Project) {
 				strncpy(buffer.data(), docText.c_str(), buffer.size() - 1);
 				buffer[buffer.size() - 1] = '\0';
 
+				if (tab->getFocusEditorNextFrame()) {
+					ImGui::SetKeyboardFocusHere();
+					tab->setFocusEditorNextFrame(false);
+				}
+
 				// Fill the remaining vertical space in the Editor window
 				ImVec2 availableSpace = ImGui::GetContentRegionAvail();
 
 				
 				ImGuiInputTextFlags flags = ImGuiInputTextFlags_CallbackAlways;
 
-				if (ImGui::InputTextMultiline("##source", buffer.data(), buffer.size(),
+				std::string editorLabel = "##editor" + tab->getID();
+
+				if (ImGui::InputTextMultiline(editorLabel.c_str(), buffer.data(), buffer.size(),
 					availableSpace, flags,
 					[](ImGuiInputTextCallbackData* data) -> int {
 						Document* doc = static_cast<Document*>(data->UserData);

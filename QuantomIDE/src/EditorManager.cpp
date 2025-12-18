@@ -238,19 +238,18 @@ std::optional<std::filesystem::path> EditorTab::save()
 {
 	auto buffer = m_Document.get()->getText();
 	const auto path = g_Core.getFileSystem()->saveFile(buffer, m_Path);
-	if (path.has_value())
-	{
-
-		setTabName(path.value().filename().string());
-		setFilePath(path.value());
-		m_Document.get()->markClean();
-
-		std::string uri = "file://" + std::filesystem::absolute(path.value()).string();
-		g_LSPClient.textDocumentDidChange(path.value(), buffer);
-		return std::optional<std::filesystem::path>(m_Path);
+	if (!path.has_value()) {
+		LOG("Warning: File save operation failed or was cancelled by user.", core::Log::LogLevel::Warn);
+		return std::nullopt;
 	}
-	LOG("Warning: File save operation failed or was cancelled by user.", core::Log::LogLevel::Warn);
-	return std::nullopt;
+	setTabName(path.value().filename().string());
+	setFilePath(path.value());
+	m_Document.get()->markClean();
+
+	std::string uri = "file://" + std::filesystem::absolute(path.value()).string();
+	g_LSPClient.textDocumentDidChange(path.value(), buffer);
+	m_focusEditorNextFrame = true;
+	return std::optional<std::filesystem::path>(m_Path);
 }
 void TabBar::closeAll()
 {
@@ -296,4 +295,27 @@ void EditorManager::insertText(const std::string& text) {
     }
     
     LOG("Inserted text: %s", core::Log::Tracer, text.c_str());
+}
+
+void EditorManager::updateAutosave(float deltaTimeSeconds) {
+	if (!m_autoSaveEnabled) return;
+
+	m_autoSaveTimer += deltaTimeSeconds;
+	if (m_autoSaveTimer < m_autoSaveInterval) return;
+
+	m_autoSaveTimer = 0.0f;
+
+	EditorTab* tab = m_TabBar.getCurrentTab();
+	if (!tab) return;
+
+	Document& doc = tab->getDocument();
+	if (!doc.isDirty()) return;
+
+	auto savedPath = tab->save();
+	if (savedPath.has_value()) {
+		LOG("Autosaved: %s", core::Log::Tracer, savedPath->string().c_str());
+	}
+	else {
+		LOG("Autosave failed for current tab", core::Log::LogLevel::Warn);
+	}
 }

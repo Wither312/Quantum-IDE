@@ -74,6 +74,8 @@ public:
 	EditorTab(std::unique_ptr<Document> doc);
 	~EditorTab();
 
+	bool getFocusEditorNextFrame() const { return m_focusEditorNextFrame; }
+	void setFocusEditorNextFrame(bool value) { m_focusEditorNextFrame = value; }
 	void setTabName(std::string name) { m_TabName = name; }
 	void setFilePath(std::filesystem::path path) { m_Path = path; }
 	std::optional<std::filesystem::path> save();
@@ -107,7 +109,7 @@ private:
 	std::filesystem::path m_Path = "";
 	SyntaxHighlighter m_SyntaxHighlighter;
 	std::unique_ptr<Document> m_Document;
-
+	bool m_focusEditorNextFrame = false;
 };
 
 // Manages the collection of tabs
@@ -152,7 +154,14 @@ public:
 
 	TabBar& getTabBar();
 
+	void updateAutosave(float deltaTimeSeconds);
+	void setAutosaveInterval(float seconds) { m_autoSaveInterval = seconds; }
+	void setAutosaveEnabled(bool enabled) { m_autoSaveEnabled = enabled; }
+
 private:
 	TabBar m_TabBar;
 
+	bool m_autoSaveEnabled		= false;
+	float m_autoSaveInterval	= 60.0f;
+	float m_autoSaveTimer		= 0.0f;
 };

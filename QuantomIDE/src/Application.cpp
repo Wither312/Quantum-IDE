@@ -219,6 +219,9 @@ void Application::Update()
 
 		ShowMainDockSpace();
 
+		float dt = ImGui::GetIO().DeltaTime;
+		m_Editor.updateAutosave(dt);
+
 		bool ctrlPressed = m_IO->KeyCtrl;  // or io.ConfigMacOSXBehaviors ? io.KeySuper : io.KeyCtrl;
 		if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_S)) {
 			// Save action here
@@ -232,16 +235,20 @@ void Application::Update()
                 auto cursorPos = tab->getDocument().getCursorPos();
                 m_pendingCompletionId = g_LSPClient.textDocumentCompletion(
                     tab->getFilePath(), 
-                    cursorPos.first + 1, cursorPos.second + 1
+                    cursorPos.first, cursorPos.second
                 );
                 LOG("Sent completion request ID: %d at (%d,%d)", core::Log::Tracer, 
-                    m_pendingCompletionId, cursorPos.first + 1, cursorPos.second + 1);
+                    m_pendingCompletionId, cursorPos.first, cursorPos.second);
                 m_showCompletionPopup = true;  // Show loading state
             }
         }
 
         // === COMPLETION POPUP ===
         if (m_showCompletionPopup) {
+			if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+				m_showCompletionPopup = false;
+				m_completionItems.clear();
+			}
             ImGui::OpenPopup("Completions");
             if (ImGui::BeginPopup("Completions", ImGuiWindowFlags_AlwaysAutoResize)) {
                 if (m_completionItems.empty()) {
