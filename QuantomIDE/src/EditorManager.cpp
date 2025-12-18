@@ -257,3 +257,43 @@ void TabBar::closeAll()
 	m_Tabs.clear();
 	m_Tabs.shrink_to_fit();
 }
+
+void Document::insertText(size_t position, const std::string& text) {
+    if (position > m_TextBuffer.size()) {
+        position = m_TextBuffer.size();
+    }
+    
+    m_TextBuffer.insert(position, text);
+    m_Dirty = true;
+    
+    m_UndoStack.push_back(m_TextBuffer.substr(0, position) + 
+                         m_TextBuffer.substr(position + text.size()));
+    m_RedoStack.clear();
+}
+
+void Document::insertTextAtCursor(const std::string& text) {
+    insertText(m_CursorPos, text);
+    m_CursorPos += text.size();
+}
+
+void EditorTab::insertText(const std::string& text) {
+	m_Document->insertTextAtCursor(text);
+}
+
+void TabBar::insertText(const std::string& text) {
+	if (EditorTab* tab = getCurrentTab()) {
+		tab->insertText(text);
+	}
+}
+
+void EditorManager::insertText(const std::string& text) {
+    m_TabBar.insertText(text);
+    
+    if (EditorTab* tab = m_TabBar.getCurrentTab()) {
+        if (!tab->getFilePath().empty()) {
+            g_LSPClient.textDocumentDidChange(tab->getFilePath(), tab->getDocument().getText());
+        }
+    }
+    
+    LOG("Inserted text: %s", core::Log::Tracer, text.c_str());
+}

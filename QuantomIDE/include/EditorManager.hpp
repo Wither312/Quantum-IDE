@@ -35,6 +35,9 @@ public:
 	void undo();
 	void redo();
 
+	void insertText(size_t position, const std::string& text);
+	void insertTextAtCursor(const std::string& text);
+
 	bool isDirty() const { return m_Dirty; }
 	void markClean() { m_Dirty = false; }
 
@@ -90,6 +93,8 @@ public:
 		return m_Path;
 	}
 
+	void insertText(const std::string& text);
+
 	void setID(std::string& id) { m_UniqueID = id; }
 	std::string getID() { return m_UniqueID; }
 	Document& getDocument();
@@ -125,6 +130,8 @@ public:
 
 	void setCurrentTabIndex(int index);
 
+	void insertText(const std::string& text);
+
 private:
 	std::vector<std::unique_ptr<EditorTab>> m_Tabs;
 	int m_CurrentTabIndex = -1;  // -1 means no active tab
@@ -140,6 +147,8 @@ public:
 	void openFile(const std::string& filepath);
 
 	void closeFile(int tabIndex);
+
+	void insertText(const std::string& text);
 
 	TabBar& getTabBar();
 

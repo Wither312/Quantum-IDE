@@ -71,6 +71,9 @@ private:
     bool show_another_window = false;
     bool m_debugSessionActive = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    std::vector<CompletionItem> m_completionItems;
+    int m_pendingCompletionId = -1;
+    bool m_showCompletionPopup = false;
 
     
     EditorManager m_Editor;

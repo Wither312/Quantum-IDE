@@ -33,6 +33,15 @@ Application::Application(const std::string& title, int width, int height)
 	if (!g_LSPClient.start()) {
 		LOG("[LSP Client] clangd failed to start!", core::Log::LogLevel::Error);
 	}
+
+	g_LSPClient.setOnCompletion([this](int id, const std::vector<CompletionItem>& items) {
+        LOG("Received %zu completion items for ID %d", core::Log::Tracer, items.size(), id);
+        for (const auto& item : items) {
+            LOG(" - %s (%s)", core::Log::Tracer, item.label.c_str(), item.detail.empty() ? "" : item.detail.c_str());
+        }
+        m_completionItems = items;
+        m_pendingCompletionId = id;
+    });
 }
 Application::~Application()
 {
@@ -217,18 +226,57 @@ void Application::Update()
 			std::cout << m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos().first << " " << m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos().second << std::endl;
 		}
 
-		if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) {
-			// Trigger autocomplete
-			std::pair<int, int> cursorPos = m_Editor.getTabBar().getCurrentTab()->getDocument().getCursorPos();
-			g_LSPClient.textDocumentCompletion(m_Editor.getTabBar().getCurrentTab()->getFilePath(), cursorPos.first + 1, cursorPos.second + 1);
-			g_LSPClient.setOnCompletion([](int id, const std::vector<CompletionItem>& items) {
-				// Handle completion items (e.g., show in UI)
-				std::cout << "Completion ID: " << id << "\n";
-				for (const auto& item : items) {
-					std::cout << " - " << item.label << "\n";
-				}
-				});
-		}
+		// Ctrl+Space - Trigger completion
+        if (ctrlPressed && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+            if (EditorTab* tab = m_Editor.getTabBar().getCurrentTab()) {
+                auto cursorPos = tab->getDocument().getCursorPos();
+                m_pendingCompletionId = g_LSPClient.textDocumentCompletion(
+                    tab->getFilePath(), 
+                    cursorPos.first + 1, cursorPos.second + 1
+                );
+                LOG("Sent completion request ID: %d at (%d,%d)", core::Log::Tracer, 
+                    m_pendingCompletionId, cursorPos.first + 1, cursorPos.second + 1);
+                m_showCompletionPopup = true;  // Show loading state
+            }
+        }
+
+        // === COMPLETION POPUP ===
+        if (m_showCompletionPopup) {
+            ImGui::OpenPopup("Completions");
+            if (ImGui::BeginPopup("Completions", ImGuiWindowFlags_AlwaysAutoResize)) {
+                if (m_completionItems.empty()) {
+                    ImGui::Text("Loading completions...");
+                } else {
+                    ImGui::Text("Completions (%zu)", m_completionItems.size());
+                    ImGui::Separator();
+                    
+                    for (size_t i = 0; i < m_completionItems.size(); ++i) {
+                        const auto& item = m_completionItems[i];
+                        std::string display = item.label;
+                        if (!item.detail.empty()) {
+                            display += " ##detail_" + std::to_string(i);
+                        }
+                        
+                        if (ImGui::Selectable(display.c_str())) {
+                            // Insert selected completion
+                            m_Editor.insertText(item.insertText);
+                            m_completionItems.clear();
+                            m_pendingCompletionId = -1;
+                            m_showCompletionPopup = false;
+                            ImGui::CloseCurrentPopup();
+                            break;
+                        }
+                        
+                        if (ImGui::IsItemHovered() && !item.detail.empty()) {
+                            ImGui::BeginTooltip();
+                            ImGui::Text("%s", item.detail.c_str());
+                            ImGui::EndTooltip();
+                        }
+                    }
+                }
+                ImGui::EndPopup();
+            }
+        }
 
 		//TOOD find better way to index 
 		m_UIManager.draw(m_Editor, m_Project);
