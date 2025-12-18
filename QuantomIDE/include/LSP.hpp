@@ -77,4 +77,5 @@ private:
     bool writeRaw(const std::string& s);
     void readerLoop();
     void handleJsonMessage(const json& msg);
+    std::string toLspUri(const std::filesystem::path& path) const;
 };

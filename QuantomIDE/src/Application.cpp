@@ -4,8 +4,8 @@
 #define IMGUI_ENABLE_DOCKING
 
 core::Core g_Core;
-LSPClient g_LSPClient("C:\\Program Files\\LLVM\\bin\\clangd.exe", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
-//LSPClient g_LSPClient("clangd", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
+//LSPClient g_LSPClient("C:\\Program Files\\LLVM\\bin\\clangd.exe", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
+LSPClient g_LSPClient("clangd", { "--log=verbose", "--all-scopes-completion", "--background-index", "--completion-style=detailed" });
 
 inline static void glfw_error_callback(int error, const char* description)
 {

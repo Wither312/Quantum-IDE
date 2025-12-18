@@ -265,10 +265,18 @@ bool LSPClient::start() {
 
     // Initialize LSP
     json initParams = {
-        {"processId", (int)getpid()},
-        {"rootUri", nullptr},
-        {"capabilities", json::object()}
-    };
+    {"processId", (int)getpid()},
+    {"rootUri", toLspUri(fs::current_path())},
+    {"capabilities", {
+        {"textDocument", {
+            {"completion", {
+                {"completionItem", {
+                    {"snippetSupport", true}
+                }}
+            }}
+        }}
+    }}
+};
 
     json initRequest = {
         {"jsonrpc", "2.0"},
@@ -446,12 +454,18 @@ void LSPClient::handleJsonMessage(const json& msg) {
     }
 }
 
+std::string LSPClient::toLspUri(const std::filesystem::path& path) const  {
+    return "file://" + path.string();
+}
+
 int LSPClient::textDocumentCompletion(const fs::path& uri, int line, int character) {
     int id = nextId();
     json params = {
-        {"textDocument", {{"uri", uri.string()}}},
+        {"textDocument", {{"uri", toLspUri(uri)}}},
         {"position", {{"line", line}, {"character", character}}},
-        {"context", json::object()}
+        {"context", {
+            {"triggerKind", 1}
+        }}
     };
     json request = {
         {"jsonrpc", "2.0"},
@@ -469,7 +483,7 @@ int LSPClient::textDocumentCompletion(const fs::path& uri, int line, int charact
 void LSPClient::textDocumentDidOpen(const fs::path& uri, const std::string& languageId, const std::string& text) {
     json params = {
         {"textDocument", {
-            {"uri", uri.string()},
+            {"uri", toLspUri(uri)},
             {"languageId", languageId},
             {"version", 1},
             {"text", text}
@@ -489,7 +503,7 @@ void LSPClient::textDocumentDidOpen(const fs::path& uri, const std::string& lang
 void LSPClient::textDocumentDidChange(const fs::path& uri, const std::string& text) {
     json params = {
         {"textDocument", {
-            {"uri", uri.string()},
+            {"uri", toLspUri(uri)},
             {"version", 2}
         }},
         {"contentChanges", json::array({
