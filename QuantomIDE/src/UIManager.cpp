@@ -56,7 +56,7 @@ static inline void DrawEditorTabs(EditorManager& editor, Project& p_Project) {
 				// Fill the remaining vertical space in the Editor window
 				ImVec2 availableSpace = ImGui::GetContentRegionAvail();
 
-				
+
 				ImGuiInputTextFlags flags = ImGuiInputTextFlags_CallbackAlways;
 
 				std::string editorLabel = "##editor" + tab->getID();
@@ -149,7 +149,7 @@ static inline void DrawEditorTabs(EditorManager& editor, Project& p_Project) {
 					tab->getDocument().setText(std::string(buffer.data()));
 				}
 
-				
+
 
 
 				ImGui::EndTabItem();
@@ -381,8 +381,9 @@ void UIManager::drawTreeView(TreeView& p_TreeView, Project& p_Project) {
 			else {
 				extern core::Core g_Core;
 
-				std::filesystem::path selected = g_Core.getFileSystem()->openFile().value();
-				if (!selected.empty()) {
+				if (g_Core.getFileSystem()->openFile().has_value() && !g_Core.getFileSystem()->openFile().value().empty()) {
+
+					std::filesystem::path selected = g_Core.getFileSystem()->openFile().value();
 					auto relPath = std::filesystem::relative(selected, rootDir);
 
 					if (filterName == std::string("Header Files"))
